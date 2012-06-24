@@ -1,0 +1,1940 @@
+program WinMobile;
+uses jsr75i, m2, mmapi, videocnv, imloadjsr75, jpeg, bmp, png3, canvas, memory, memclean, alpha, font32, thread10, rc, jsr75ex;
+const
+{Значения, возвращаемые окном}
+ID_NONE=0;
+ID_MINIMIZE=1;
+ID_CLOSE=2;
+{Скорость курсора}
+//CursorSpeed=2;
+{Активное окно}
+ID_desktop=0;
+ID_wmp=1;
+ID_cpanel=2;
+ID_cp_mouse=3;
+ID_mycomputer=4;
+ID_viewer=5;
+ID_cp_sysinfo=6;
+        {эти для тетриса}
+				fieldWidth = 10;
+				fieldHeight = 15;
+				
+
+var
+DelayAfterDraw: boolean; // Надо ли ждать после отрисовки
+LockAll: boolean; // Деактивировать большинство визуальных элементов
+MustExit: boolean;
+
+cursorX, cursorY: integer; // Позиция курсора
+keycode: integer; // Код нажатой клавиши
+ikursor: image; //Изображения: курсор,
+ifon, ifon2: image; // фоновая картинка,
+idown, ipuskbutton: image; // нижняя панель и пуск,
+ikomp, imail, ipanel, iwmp, iexplorer, itetris: image; // ярлыки,
+ibutton: image; // кнопка,
+ititle, ix, ix2, iminimize, iminimize2: image; // верхняя панель и кнопки,
+imbtitle: image; // для messageBox,
+ilogo: image; // логотип проигрывателя,
+iwmpdown, iwmpplay, iwmpstop, iwmpsound: image; // панель проигрывателя,
+itester:image;
+ishortcut:image;
+iupdate, inewfolder:image;
+imouse, ipicdir: image;
+imouse1, imouse2, imouse3:image;
+idiricon, imusicicon, iimageicon, ifileicon, itexticon, iup, ilistup, ilistdown, ilistpos: image;
+iminiwmp, iminicp, iminicpmouse, iminimycomputer, iminiviewer: image;
+ipic: image;
+iscreen: image;
+ioff, icancel: image;
+iwait, iwait2, iwait3, iwait4:image;
+ibar, ibar2:image;
+
+CursorSpeed:integer;
+
+media: integer; // Для проигрывателя
+
+k:real; // не используется
+
+Cnt:integer;
+
+wmpFileName: string; // Имя файла для проигрывателя
+ViewerFileName: string; // Для проигрывателя
+
+screenshots_path:string; // Куда девать скриншоты
+
+mc_path, mc_path2, mc_data, mc_fdata:string; // для работы с
+mc_array: array[1..999] of string;          // файловой системой
+
+tmp_string:string; // Для чтения ТХТ
+
+ActiveWindow: integer; // Какое окно активно
+
+mustendwait:boolean;
+
+{Статусы окон}
+WmpIsActive: boolean; 
+CPIsActive: boolean;
+CPMouseIsActive: boolean;
+CPSysInfoIsActive: boolean;
+MyComputerIsActive: boolean;
+ViewerIsActive: boolean;
+
+PopupIsActive, StartIsActive:boolean;
+
+UpperMessageIsActive:boolean;
+UpperMessage:string;
+UpperMessageIcon:image;
+
+id_ok: command;
+id_destroy: command;
+id_textfield1: integer;
+id_textfield2: integer;
+id_options:integer;
+id_openfile, id_editfile, id_copyfile, id_movefile, id_cancel: integer;
+id_string: integer;
+
+StartPosition:integer; // Прокрутка в ФМ
+ListSize:integer;
+
+ShortcutPath, ShortcutName:string;
+
+sys_colors:integer; // Цветность дисплея
+
+gg1:boolean;
+gg2:integer;
+
+nil:image; // пустое
+
+FMIndex:integer;
+
+PopupX, PopupY:integer;
+
+      {для тетриса}
+      gameField: array[1..fieldWidth, 1..fieldHeight] of integer;
+			block: array[1..4, 1..4] of integer;
+			blockX, blockY: integer;
+			blockSize: integer;
+			screenWidth, screenHeight: integer;			
+			screenX, screenY: integer;
+			score: integer;
+			time: integer;
+			gameRunning: boolean;
+			gameSpeedDelay: integer;
+			pauseCommand, quitCommand, clickedCommand: command;
+			gamePaused: boolean;
+
+
+{вот здесь идет тетрис}
+procedure rotateRight; forward;
+function blockPositionValid: boolean; forward;
+{
+	welcomeScreen - display the wellcome screen
+}
+procedure welcomeScreen;
+var
+  textToDisplay : string;
+  textXPos      : integer;
+  textYPos      : integer;
+  keyCode       : integer;
+begin
+	setColor(255, 255, 255);
+  
+  fillRect(0, 0, screenWidth, screenHeight);
+  
+  setColor(0, 0, 255);
+  
+  setFont(FONT_FACE_PROPORTIONAL, FONT_STYLE_BOLD, FONT_SIZE_LARGE);
+  textToDisplay := 'Tetris';
+  textXPos := (screenWidth - getStringWidth(textToDisplay)) div 2; 
+  textYPos := (screenHeight - getStringHeight(textToDisplay)) / 2;
+  drawText(textToDisplay, textXPos, textYPos);
+  textYPos := textYPos + getStringHeight(textToDisplay);
+  
+  setColor(0, 0, 0);
+  
+  setFont(FONT_FACE_PROPORTIONAL, FONT_STYLE_PLAIN, FONT_SIZE_SMALL);  
+  
+  textToDisplay := 'Created with MIDletPascal';
+  textXPos := (screenWidth - getStringWidth(textToDisplay)) div 2;
+  drawText(textToDisplay, textXPos, textYPos);
+  textYPos := textYPos + getStringHeight(textToDisplay);
+  
+  textToDisplay := 'Press any key';
+  textXPos := (screenWidth - getStringWidth(textToDisplay)) div 2;
+  drawText(textToDisplay, textXPos, textYPos);
+   
+  repaint;
+  
+  { wait until user presses any key }
+  repeat
+    keyCode := getKeyClicked;     
+  until keyCode <> 0;
+
+end;
+
+
+{
+  gameOver - displays the game over screen
+}
+function gameOver: boolean;
+var
+  textToDisplay : string;
+  textXPos      : integer;
+  textYPos      : integer;
+  keyCode       : integer;
+	newGame       : command;
+  quit          : command;
+  clickedCommand: command;
+begin
+
+  setColor(255, 255, 255);
+  
+  fillRect(0, 0, screenWidth, screenHeight);
+  
+  setColor(255, 0, 0);
+  
+  setFont(FONT_FACE_PROPORTIONAL, FONT_STYLE_BOLD, FONT_SIZE_LARGE);
+  textToDisplay := 'Game over!';
+  textXPos := (screenWidth - getStringWidth(textToDisplay)) div 2; 
+  textYPos := (screenHeight - getStringHeight(textToDisplay)) / 2;
+  drawText(textToDisplay, textXPos, textYPos);
+  textYPos := textYPos + getStringHeight(textToDisplay);
+  
+  repaint;
+  
+  newGame := createCommand('Play', CM_SCREEN, 1);
+	quit := createCommand('Quit', CM_EXIT, 1);
+		
+	addCommand(newGame);
+	addCommand(quit);
+  
+  { wait until user presses any key }
+  repeat
+    delay(100);
+    clickedCommand := getClickedCommand;
+  until (clickedCommand <> emptyCommand);
+  
+  if clickedCommand = quit then
+		gameOver := true;
+	else
+		gameOver := false;
+		
+	removeCommand(newGame);
+	removeCommand(quit);
+
+end;
+
+			
+
+{
+	setSizes - calculates the size of a single block
+	and the position of the game field
+}
+procedure setSizes;
+var blockWidth, blockHeight: integer;
+			
+begin
+	screenWidth := getWidth;
+	screenHeight := getHeight;
+	
+	blockWidth := screenWidth / fieldWidth;
+	blockHeight := screenHeight / fieldHeight;
+	
+	if blockHeight > blockWidth then 
+		blockSize := blockWidth;
+	else
+		blockSize := blockHeight;
+		
+	screenX := (screenWidth - blockSize*fieldWidth) / 2;
+	screenY := (screenHeight - blockSize*fieldHeight) / 2;
+		
+end;
+
+
+{
+	initializeGameField - makes the game field empty
+}
+procedure initializeGameField;
+var i, j:integer;
+begin
+	for i:=1 to fieldWidth do
+		for j:=1 to fieldHeight do
+			gameField[i, j] := 0;
+end;
+
+
+{
+	drawScore - writes the score on the screen in black
+}
+procedure drawScore;
+var 	stringWidth, stringHeight: integer;
+			outputText: string;
+begin
+	outputText := 'Lines: ' + score;
+	
+	stringWidth  := getStringWidth(outputText);
+	stringHeight := getStringHeight(outputText);
+	
+	setFont(FONT_FACE_PROPORTIONAL, FONT_STYLE_PLAIN, FONT_SIZE_SMALL);
+	setColor(0, 0, 0);
+	
+	drawText(outputText, (screenWidth - stringWidth) / 2,
+				               (screenHeight - stringHeight) / 2);
+	
+end;
+
+
+{
+	drawBlock - draws a single game block
+}
+procedure drawBlock(col, row, color: integer);
+var 	red, green, blue: integer;
+begin
+	{ set the color }
+	if color = 1 then red := 255;
+	if color = 2 then green := 255;
+	if color = 3 then blue := 255;
+	if color = 4 then begin red := 255; green := 255; end;
+	if color = 5 then begin red := 255; blue := 255; end;
+	if color = 6 then begin green := 255; blue := 255; end;
+	
+	if (color <> 0) and (row > 0) and (row <= fieldHeight) and
+     (col > 0) and (col <= fieldWidth) then
+	begin
+		row := row;
+		col := col - 1;
+		
+		{ draw the light block fill }
+		setColor(red, green, blue);
+		fillRect(screenX + col*blockSize, screenHeight - screenY - row*blockSize, blockSize, blockSize);
+		
+		{ draw the dark border around the block }
+		setColor(red/2, green/2, blue/2);
+		drawRect(screenX + col*blockSize, screenHeight - screenY - row*blockSize, blockSize, blockSize);
+	
+	end;	
+	
+end;
+
+
+{
+	redrawGameScreen - redraws the screen with all the blocks 
+}
+procedure redrawGameScreen;
+var 	i, j: integer;
+begin
+	setColor(0, 0, 0);
+	fillRect(0, 0, screenWidth, screenHeight);
+	
+	setColor(255, 255, 255);
+	fillRect(screenX, screenY, fieldWidth * blockSize + 1, fieldHeight * blockSize + 1);
+	
+	{ draw the blocks that are down }
+	for i:=1 to fieldWidth do
+		for j:=1 to fieldHeight do
+			drawBlock(i, j, gameField[i, j]);
+			
+	{ draw the blocks that are falling }
+	for i:=1 to 4 do
+		for j:=1 to 4 do
+			drawBlock(i + blockX, j + blockY, block[i, j]);
+			
+	{ draw the score text }
+	drawScore;
+	
+	repaint;
+	
+end;
+
+
+{
+	createNewBlock - creates the new falling block. If you want
+	to change the falling shapes, do it here.
+}
+procedure createNewBlock;
+var x, shape: integer;
+begin
+	shape := random(7);
+	x := random(6) + 1;
+	
+	if shape = 0 then
+	begin
+		block[1, 4] := 0; block[2, 4] := x; block[3, 4] := x; block [4, 4] := 0;
+		block[1, 3] := 0; block[2, 3] := x; block[3, 3] := x; block [4, 3] := 0;
+		block[1, 2] := 0; block[2, 2] := 0; block[3, 2] := 0; block [4, 2] := 0;
+		block[1, 1] := 0; block[2, 1] := 0; block[3, 1] := 0; block [4, 1] := 0;
+	end;
+	
+	if shape = 1 then
+	begin
+		block[1, 4] := 0; block[2, 4] := x; block[3, 4] := 0; block [4, 4] := 0;
+		block[1, 3] := 0; block[2, 3] := x; block[3, 3] := 0; block [4, 3] := 0;
+		block[1, 2] := 0; block[2, 2] := x; block[3, 2] := 0; block [4, 2] := 0;
+		block[1, 1] := 0; block[2, 1] := x; block[3, 1] := 0; block [4, 1] := 0;
+	end;
+	
+	if shape = 2 then
+	begin
+		block[1, 4] := 0; block[2, 4] := x; block[3, 4] := 0; block [4, 4] := 0;
+		block[1, 3] := 0; block[2, 3] := x; block[3, 3] := x; block [4, 3] := 0;
+		block[1, 2] := 0; block[2, 2] := 0; block[3, 2] := x; block [4, 2] := 0;
+		block[1, 1] := 0; block[2, 1] := 0; block[3, 1] := 0; block [4, 1] := 0;
+	end;
+	
+	if shape = 3 then
+	begin
+		block[1, 4] := 0; block[2, 4] := 0; block[3, 4] := x; block [4, 4] := 0;
+		block[1, 3] := 0; block[2, 3] := x; block[3, 3] := x; block [4, 3] := 0;
+		block[1, 2] := 0; block[2, 2] := x; block[3, 2] := 0; block [4, 2] := 0;
+		block[1, 1] := 0; block[2, 1] := 0; block[3, 1] := 0; block [4, 1] := 0;
+	end;
+	
+	if shape = 4 then
+	begin
+		block[1, 4] := 0; block[2, 4] := x; block[3, 4] := 0; block [4, 4] := 0;
+		block[1, 3] := 0; block[2, 3] := x; block[3, 3] := 0; block [4, 3] := 0;
+		block[1, 2] := 0; block[2, 2] := x; block[3, 2] := x; block [4, 2] := 0;
+		block[1, 1] := 0; block[2, 1] := 0; block[3, 1] := 0; block [4, 1] := 0;
+	end;
+	
+	if shape = 5 then
+	begin
+		block[1, 4] := 0; block[2, 4] := 0; block[3, 4] := x; block [4, 4] := 0;
+		block[1, 3] := 0; block[2, 3] := 0; block[3, 3] := x; block [4, 3] := 0;
+		block[1, 2] := 0; block[2, 2] := x; block[3, 2] := x; block [4, 2] := 0;
+		block[1, 1] := 0; block[2, 1] := 0; block[3, 1] := 0; block [4, 1] := 0;
+	end;
+
+	if shape = 6 then
+	begin
+		block[1, 4] := 0; block[2, 4] := 0; block[3, 4] := 0; block [4, 4] := 0;
+		block[1, 3] := 0; block[2, 3] := x; block[3, 3] := 0; block [4, 3] := 0;
+		block[1, 2] := x; block[2, 2] := x; block[3, 2] := x; block [4, 2] := 0;
+		block[1, 1] := 0; block[2, 1] := 0; block[3, 1] := 0; block [4, 1] := 0;
+	end;
+	
+		redrawGameScreen;
+
+end;
+
+
+{
+	removeFullLines - checks if any line is full and removes it
+}
+procedure removeFullLines;
+var lineFull: boolean;
+		i, j, k: integer;
+begin
+
+	for i:=1 to fieldHeight do
+	begin
+		{ check if the line is full }
+		lineFull := true;
+		for j:= 1 to fieldWidth do
+			if gameField[j, i] = 0 then lineFull := false;
+		
+		{ if it is full, remove it }
+		if lineFull then
+		begin
+		
+			for k := i+1 to fieldHeight do
+			begin
+				for j:=1 to fieldWidth do
+					gameField[j, k-1] := gameField[j, k];
+			end;
+			
+			{ erase the top line }
+			for j:=1 to fieldWidth do
+				gameField[j, fieldHeight] := 0;
+		
+			score := score + 1;
+			
+			{ speed the game up }
+			if (score mod 5) = 0 then
+				gameSpeedDelay := gameSpeedDelay * 9 / 10;
+			i := i - 1;
+		end;
+	end;
+
+end;
+
+
+{
+	blockIsDown - this procedure is invoked when the block
+	falls as low as it can get. 
+}
+procedure blockIsDown;
+var		i, j: integer;
+begin
+
+	{ copy the block data }
+	for i:=1 to 4 do
+		for j:=1 to 4 do
+		begin
+			if block[i, j] <> 0 then
+				gameField[i + blockX, j + blockY] := block[i, j];
+		end;
+	
+	{ check if any lines can be removed }
+	removeFullLines;
+	
+	blockX := (fieldWidth - 4) / 2;
+	blockY := fieldHeight - 4;
+	
+	{ create the new block }
+	createNewBlock;
+	
+	{ check if the block can be placed on the screen }
+	if not blockPositionValid then
+		gameRunning := false;
+end;
+
+
+{
+	blockPositionValid - returns true if the
+	block's current position is OK. If the 
+	block's current position is not OK because
+	the block overlaps with other elements or
+	because it is out of the game are, return 
+	false;
+}
+function blockPositionValid: boolean;
+var 	i, j: integer;
+			x, y: integer;
+begin
+	blockPositionValid := true;
+	
+	for i:=1 to 4 do
+		for j:=1 to 4 do
+		begin
+			if block[i, j] <> 0 then
+			begin
+				x := blockX + i;
+				y := blockY + j;
+				
+				if x<=0 then blockPositionValid := false; else
+				if x>fieldWidth then blockPositionValid := false; else
+				if y<=0 then blockPositionValid := false; else
+				if y>fieldHeight then blockPositionValid := false; else
+				if gameField[x, y] <> 0 then blockPositionValid := false;
+			end;
+		end;
+end;
+
+
+{
+	rotateLeft - rotates a block to the left
+}
+procedure rotateLeft;
+var i, j, t: integer;
+begin
+	{ transpose the block }
+	for i:=1 to 4 do
+		for j:=i to 4 do
+		begin
+			t := block[i, j];
+			block[i, j] := block[j, i];
+			block[j, i] := t;
+		end;
+		
+	{ do the vertical mirror transformation }
+	for i:=1 to 4 do
+		begin
+			t := block[i, 1];
+			block[i, 1] := block[i, 4];
+			block[i, 4] := t;
+			
+			t := block[i, 2];
+			block[i, 2] := block[i, 3];
+			block[i, 3] := t;
+		end;
+		
+		if not blockPositionValid then 
+			rotateRight;
+		else
+			redrawGameScreen;
+end;
+
+
+{
+	rotateRight - rotates a block to the right
+}
+procedure rotateRight;
+var i, j, t: integer;
+begin
+	{ transpose the block }
+	for i:=1 to 4 do
+		for j:=i to 4 do
+		begin
+			t := block[i, j];
+			block[i, j] := block[j, i];
+			block[j, i] := t;
+		end;
+		
+	{ do the horizontal mirror transformation }
+	for i:=1 to 4 do
+		begin
+			t := block[1, i];
+			block[1, i] := block[4, i];
+			block[4, i] := t;
+			
+			t := block[2, i];
+			block[2, i] := block[3, i];
+			block[3, i] := t;
+		end;
+	
+	if not blockPositionValid then 
+		rotateLeft;
+	else
+		redrawGameScreen;
+end;
+
+
+{
+	moveBlock - moves the block and checks if the block
+	can be moved to the given position
+}
+procedure moveBlock(deltaX, deltaY: integer);
+begin
+	blockX := blockX + deltaX;
+	blockY := blockY + deltaY;
+	
+	if not blockPositionValid then
+	begin
+		blockX := blockX - deltaX;
+		blockY := blockY - deltaY;
+		
+		if (deltaY <> 0) then
+			blockIsDown;
+	end;
+	else
+		redrawGameScreen;
+end;
+
+
+{ 
+	processKeyActions - read the keyboard and run the needeed
+  commands
+}
+procedure processKeyActions;
+var		key: integer;
+begin
+	key := keyToAction(getKeyClicked);
+		
+	if key = GA_UP then rotateLeft;
+	if key = GA_FIRE then rotateRight;
+	if key = GA_DOWN then moveBlock(0, -1);
+	if key = GA_LEFT then moveBlock(-1, 0);
+	if key = GA_RIGHT then moveBlock(1, 0);
+end;
+
+
+{
+	checkTime - check if the game speed interval has passed;
+	if it did, then move the block one place down
+}
+procedure checkTime;
+var	currentTime: integer;
+begin
+	currentTime := getRelativeTimeMs;
+	
+	if ((currentTime - time) > gameSpeedDelay)
+   or ((currentTime - time) < 0) then 
+	begin
+		moveBlock(0, -1);
+		time := currentTime;
+	end;
+end;
+
+procedure RunTetris;
+begin
+	setSizes;
+	welcomeScreen;
+	setDefaultFont;
+	
+	repeat
+		initializeGameField;
+		gameSpeedDelay := 500; { 500 ms = 0.5 s }
+		score := 0;
+		createNewBlock;
+		blockX := (fieldWidth - 4) div 2;
+		blockY := fieldHeight - 4;
+		time := getRelativeTimeMs;
+		gameRunning := true;
+		redrawGameScreen;
+		gamePaused := false;
+		
+		pauseCommand := createCommand('Pause', CM_SCREEN, 1);
+		quitCommand := createCommand('Quit', CM_OK, 1);
+		
+		addCommand(pauseCommand);
+		addCommand(quitCommand);
+	
+		while gameRunning do
+		begin
+		  if (not isMidletPaused) and (not gamePaused) then
+		  begin
+			  processKeyActions;
+			  checkTime;
+		  end;
+		  
+		  clickedCommand := getClickedCommand;
+		  
+		  if clickedCommand = quitCommand then
+		  begin
+		    gameRunning := false;
+		  end;
+		  
+		  if clickedCommand = pauseCommand then
+		    gamePaused := not gamePaused;
+		end;
+		removeCommand(pauseCommand);
+		removeCommand(quitCommand);
+				
+	until gameOver;
+setFont(FONT_FACE_MONOSPACE, FONT_STYLE_PLAIN, FONT_SIZE_small); 
+setColor(0,0,0);
+end;
+{а здесь он заканчивается}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+procedure WFileOpen(fpath, fname: string); forward;
+procedure TurnPopup(state:boolean); forward;
+procedure BenchMark; forward;
+
+function DrawButton(title:string; x,y:integer):boolean;
+begin
+DrawImage(ibutton, x, y);
+SetColor(0,0,0);
+DrawText(title, x+25-GetStringWidth(title)/2, y+(19/2)-GetStringHeight(title)/2);
+if (CursorX>x)and(CursorX<x+50)and(CursorY>y)and(CursorY<y+19)and(KeyToAction(keycode)=GA_FIRE) then DrawButton:=true else DrawButton:=false;
+if LockAll then DrawButton:=false;
+end;
+
+function DrawHiddenButton(title:string; x,y:integer):integer;
+begin
+if not LockAll then begin
+if (CursorY>y)and(CursorY<y+15)and(CursorX>15)and(CursorX<GetWidth-15)and(CursorY<GetHeight-16) then begin
+                                                                                                        SetColor(0,128,255);
+                                                                                                        fillRect(0,y,GetWidth-16,15);
+                                                                                                        SetColor(255,255,255);
+                                                                                                        DrawText(title, x, y+(15/2)-GetStringHeight(title)/2);
+                                                                                                        end;
+                                                                                                  else begin
+                                                                                                        SetColor(0,0,0);
+                                                                                                        DrawText(title, x, y+(15/2)-GetStringHeight(title)/2);
+                                                                                                        end;
+end
+else begin
+      SetColor(0,0,0);
+      DrawText(title, x, y+(15/2)-GetStringHeight(title)/2);
+      end;
+
+SetColor(0,0,0);
+DrawHiddenButton:=0;
+if (CursorY>y)and(CursorY<y+15)and(CursorX>15)and(CursorX<GetWidth-15)and(CursorY<GetHeight-16)and(KeyToAction(keycode)=GA_FIRE) then DrawHiddenButton:=1;
+if (CursorY>y)and(CursorY<y+15)and(CursorX>15)and(CursorX<GetWidth-15)and(CursorY<GetHeight-16)and(keycode=KE_KEY3) then DrawHiddenButton:=2;
+if (CursorY>y)and(CursorY<y+15)and(CursorX>15)and(CursorX<GetWidth-15)and(CursorY<GetHeight-16)and(keycode=-7) then DrawHiddenButton:=2;
+if LockAll then DrawHiddenButton:=0;
+end;
+
+function DrawGraphicButton(img, img2:image; x,y,width,height:integer):boolean;
+begin
+if (CursorX>x)and(CursorX<x+width)and(CursorY>y)and(CursorY<y+height) then DrawImage(img2, x, y) else DrawImage(img, x, y);
+if (CursorX>x)and(CursorX<x+width)and(CursorY>y)and(CursorY<y+height)and(KeyToAction(keycode)=GA_FIRE) then DrawGraphicButton:=true else DrawGraphicButton:=false;
+if LockAll then DrawGraphicButton:=false;
+end;
+
+function DrawWindowAndTitle(r,g,b: integer; title: string):integer;
+begin
+SetColor(255,255,255);
+fillRect(0,0,GetWidth,GetHeight);
+SetColor(r,g,b);
+DrawImage(ifon,GetWidth/2-GetImageWidth(ifon)/2,GetHeight/2-GetImageHeight(ifon)/2);
+FillRect(0,18,GetWidth,GetHeight);
+DrawImage(ititle, 0, 0);
+SetColor(0,0,0);
+DrawText(title, 2, 9-GetStringHeight(title)/2);
+if (CursorX>GetWidth-26)and(CursorY<18) then DrawImage(ix2,GetWidth-26,0) else DrawImage(ix, GetWidth-26, 0);
+if (CursorX>GetWidth-49)and(CursorX<GetWidth-26)and(CursorY<18) then DrawImage(iminimize2, GetWidth-49, 0) else DrawImage(iminimize, GetWidth-49, 0);
+DrawWindowAndTitle:=ID_NONE;
+if (CursorX>GetWidth-26)and(CursorY<18)and(KeyToAction(keycode)=GA_FIRE) then begin DrawWindowAndTitle:=ID_CLOSE; end;
+if (CursorX>GetWidth-49)and(CursorX<GetWidth-26)and(CursorY<18)and(KeyToAction(keycode)=GA_FIRE) then begin DrawWindowAndTitle:=ID_MINIMIZE; end;
+if LockAll then DrawWindowAndTitle:=ID_NONE;
+end;
+
+function DrawPopupItem(title:string; x,y,width,height:integer):boolean;
+begin
+if (CursorY>y)and(CursorY<(y+height))and(CursorX>x)and(CursorX<(X+Width)) then begin
+                                                                                 {SetColor(0,64,128);
+                                                                                 fillRect(x,y,width,height);}
+                                                                                 DrawImage(resize_image(ibar2,width,height),x,y);
+                                                                                 SetColor(0,0,0);
+                                                                                 DrawText(title, x+1, y+(height/2)-GetStringHeight(title)/2);
+                                                                                 end;
+                                                                                 else begin
+                                                                                       {SetColor(192,192,192);
+                                                                                       fillRect(x,y,width,height);}
+                                                                                       DrawImage(resize_image(ibar,width,height),x,y);
+                                                                                       SetColor(255,255,255);
+                                                                                       DrawText(title, x+1, y+(height/2)-GetStringHeight(title)/2);
+                                                                                       end;
+if (CursorY>y)and(CursorY<(y+height))and(CursorX>x)and(CursorX<(X+Width))and(KeyToAction(keycode)=GA_FIRE) then DrawPopupItem:=true else DrawPopupItem:=false;
+end;
+
+function DrawPopupItemWithImage(title:string; img: image; x,y,width,height:integer):boolean;
+begin
+if (CursorY>y)and(CursorY<(y+height))and(CursorX>x)and(CursorX<(X+Width)) then begin
+                                                                                 {SetColor(0,64,128);
+                                                                                 fillRect(x,y,width,height);}
+                                                                                 DrawImage(resize_image(ibar2,width,height),x,y);
+                                                                                 DrawImage(img,x,y);
+                                                                                 SetColor(0,0,0);
+                                                                                 DrawText(title, x+GetImageWidth(img)+1, y+(height/2)-GetStringHeight(title)/2);
+                                                                                 end;
+                                                                                 else begin
+                                                                                       {SetColor(192,192,192);
+                                                                                       fillRect(x,y,width,height);}
+                                                                                       DrawImage(resize_image(ibar,width,height),x,y);
+                                                                                       DrawImage(img,x,y);
+                                                                                       SetColor(255,255,255);
+                                                                                       DrawText(title, x+GetImageWidth(img)+1, y+(height/2)-GetStringHeight(title)/2);
+                                                                                       end;
+if (CursorY>y)and(CursorY<(y+height))and(CursorX>x)and(CursorX<(X+Width))and(KeyToAction(keycode)=GA_FIRE) then DrawPopupItemWithImage:=true else DrawPopupItemWithImage:=false;
+end;
+
+procedure ShowHint(hint:string);
+var px,py:integer;
+begin
+px:=cursorx+10;
+py:=cursory+15;
+if GetStringWidth(hint)+4+px>GetWidth then px:=GetWidth-GetStringWidth(hint)-4;
+if not LockAll then begin
+setcolor(244,242,242);
+fillRect(px,py,GetStringWidth(hint)+4,GetStringHeight(hint)+4);
+setcolor(111,111,111);
+drawrect(px,py,GetStringWidth(hint)+4,GetStringHeight(hint)+4);
+setcolor(0,0,0);
+drawText(hint,px+2,py+2);
+end;
+end;
+
+
+function GetIcon(I:integer):image;
+begin
+if GetChar(mc_array[I], Length(mc_array[I])-1)='/' then GetIcon:=idiricon
+else if GetChar(mc_array[I], Length(mc_array[I])-1)='3' then GetIcon:=imusicicon
+else if GetChar(mc_array[I], Length(mc_array[I])-1)='d' then GetIcon:=imusicicon
+else if GetChar(mc_array[I], Length(mc_array[I])-1)='r' then GetIcon:=imusicicon
+else if GetChar(mc_array[I], Length(mc_array[I])-1)='v' then GetIcon:=imusicicon
+else if GetChar(mc_array[I], Length(mc_array[I])-1)='g' then GetIcon:=iimageicon
+else if GetChar(mc_array[I], Length(mc_array[I])-1)='f' then GetIcon:=iimageicon
+else if GetChar(mc_array[I], Length(mc_array[I])-1)='p' then GetIcon:=iimageicon
+else if GetChar(mc_array[I], Length(mc_array[I])-1)='t' then GetIcon:=itexticon
+else GetIcon:=ifileicon;
+end;
+
+procedure DrawIcon(I,x,y:integer);
+begin
+if GetChar(mc_array[I], Length(mc_array[I])-1)='/' then DrawImage(idiricon,x,y)
+else if GetChar(mc_array[I], Length(mc_array[I])-1)='3' then DrawImage(imusicicon,x,y)
+else if GetChar(mc_array[I], Length(mc_array[I])-1)='d' then DrawImage(imusicicon,x,y)
+else if GetChar(mc_array[I], Length(mc_array[I])-1)='r' then DrawImage(imusicicon,x,y)
+else if GetChar(mc_array[I], Length(mc_array[I])-1)='v' then DrawImage(imusicicon,x,y)
+else if GetChar(mc_array[I], Length(mc_array[I])-1)='g' then DrawImage(iimageicon,x,y)
+else if GetChar(mc_array[I], Length(mc_array[I])-1)='f' then DrawImage(iimageicon,x,y)
+else if GetChar(mc_array[I], Length(mc_array[I])-1)='p' then DrawImage(iimageicon,x,y)
+else if GetChar(mc_array[I], Length(mc_array[I])-1)='t' then DrawImage(itexticon,x,y)
+else DrawImage(ifileicon,x,y)
+end;
+
+procedure p1;
+begin
+repeat
+DrawImage(iwait, GetWidth/2-GetImageWidth(iwait)/2, GetHeight/2-GetImageHeight(iwait)/2);
+Delay(100);
+Repaint;
+DrawImage(iwait2, GetWidth/2-GetImageWidth(iwait2)/2, GetHeight/2-GetImageHeight(iwait2)/2);
+Delay(100);
+Repaint;
+DrawImage(iwait3, GetWidth/2-GetImageWidth(iwait3)/2, GetHeight/2-GetImageHeight(iwait3)/2);
+Delay(100);
+Repaint;
+DrawImage(iwait4, GetWidth/2-GetImageWidth(iwait4)/2, GetHeight/2-GetImageHeight(iwait4)/2);
+Delay(100);
+Repaint;
+until mustendwait;
+end;
+
+procedure StartWait;
+begin
+mustEndWait:=false;
+thread10.init(1);
+thread10.start(1);
+//DrawImage(iwait, GetWidth/2-GetImageWidth(iwait)/2, GetHeight/2-GetImageHeight(iwait)/2);
+end;
+
+procedure EndWait;
+begin
+thread10.stop(1);
+mustendwait:=true;
+//DrawImage(iwait, GetWidth/2-GetImageWidth(iwait)/2, GetHeight/2-GetImageHeight(iwait)/2);
+end;
+
+procedure WExit;
+begin
+// if OpenPlayer('/Windows_Shutdown.mp3', 'audio/mpeg') then if SetPlayerCount(1) then if StartPlayer then gg1:=true;
+// Звуковой эффект смылся в ужасе
+iscreen:=ImageFromCanvas(0,0,GetWidth,GetHeight);
+for Cnt:=63 downto 0 do begin
+                          SetColor(0,0,0);
+                          fillRect(0,0,GetWidth,GetHeight);
+                          DrawImage(SetOpaque(iscreen, Cnt*4), 0, 0);
+                          Repaint;
+                          end;
+Halt;
+end;
+
+procedure SwitchWindow(wid:integer);
+begin
+if ActiveWindow=wid then ActiveWindow:=ID_desktop else ActiveWindow:=wid;
+DelayAfterDraw:=true;
+end; 
+
+procedure TurnPopup(state:boolean);
+begin
+LockAll:=state;
+PopupIsActive:=state;
+PopupX:=CursorX+2;
+PopupY:=CursorY+2;
+if PopupX>GetWidth-64-2 then PopupX:=GetWidth-64;
+if PopupY>GetHeight-16-60-2 then PopupY:=GetHeight-16-60;
+end;
+
+procedure TurnStart(state:boolean);
+begin
+LockAll:=state;
+StartIsActive:=state;
+end;
+
+procedure Popup;
+begin
+if DrawPopupItem('Открыть', PopupX, PopupY, 64, 15) then begin
+                                                          TurnPopup(false);
+                                                          WFileOpen(mc_path, mc_array[FMIndex]);
+                                                          DelayAfterDraw:=true;
+                                                          end;
+if DrawPopupItem('Свойства', PopupX, PopupY+15, 64, 15) then begin
+                                                              TurnPopup(false);
+                                                              //showAlert('Свойства','Размер файла: '+IntegerToString(jsr75ex.file_size(mc_path+mc_array[FMIndex])),ikomp,ALERT_INFO);  
+                                                              UpperMessageIsActive:=true;
+                                                              UpperMessage:='Размер файла: '+IntegerToString(jsr75ex.file_size(mc_path+mc_array[FMIndex])/1024)+' Кб';
+                                                              UpperMessageIcon:=ikomp;
+                                                              
+                                                              //id_ok:=createCommand('OK',CM_OK, 1);  
+                                                              //addCommand(id_ok); 
+                                                              //repeat until getClickedCommand=id_ok;  
+                                                              //ShowCanvas; 
+                                                              //DelayAfterDraw:=true;
+                                                              end;
+if DrawPopupItem('Удалить', PopupX, PopupY+30, 64, 15) then begin
+                                                             TurnPopup(false);
+                                                             delete_file('/'+mc_path+mc_array[FMIndex]);
+                                                             DelayAfterDraw:=true;
+                                                             end;
+if DrawPopupItem('Ярлык', PopupX, PopupY+45, 64, 15) then begin
+                                                           TurnPopup(false);
+                                                           ShortcutPath:=mc_path;
+                                                           ShortcutName:=mc_array[FMIndex];
+                                                           ishortcut:=resize_image(GetIcon(FMIndex),20,20);
+                                                           DelayAfterDraw:=true;
+                                                           end;
+if DrawPopupItem('Отмена', PopupX, PopupY+60, 64, 15) then begin
+                                                            TurnPopup(false);
+                                                            DelayAfterDraw:=true;
+                                                            end;
+setcolor(130,130,130);
+DrawLine(PopupX+64, PopupY, PopupX+64, PopupY+60);
+DrawLine(PopupX, PopupY+60, PopupX+64, PopupY+60);
+setcolor(60,60,60);
+DrawLine(PopupX+65, PopupY+1, PopupX+65, PopupY+61);
+DrawLine(PopupX+1, PopupY+61, PopupX+65, PopupY+61);
+end;
+
+procedure ShowStart;
+begin
+if DrawPopupItemWithImage('Мой компьютер', ikomp, 0, GetHeight-96, 100, 20) then begin
+                                                                                  TurnStart(false);
+                                                                                  activewindow:=ID_mycomputer;
+                                                                                  mycomputerIsActive:=true;
+                                                                                  DelayAfterDraw:=true;
+                                                                                  end;
+if DrawPopupItemWithImage('Тетрис', itetris, 0, GetHeight-76, 100, 20) then begin
+                                                                             TurnStart(false);
+                                                                             RunTetris;
+                                                                             DelayAfterDraw:=true;
+                                                                             end;
+if DrawPopupItemWithImage('Выключение', ioff, 0, GetHeight-56, 100, 20) then MustExit:=true;
+if DrawPopupItemWithImage('Отмена', icancel, 0, GetHeight-36, 100, 20) then begin TurnStart(false); DelayAfterDraw:=true; end; 
+end;
+
+procedure MessageBox(str1, str2, str3: string);
+var screen_tmp: image;
+    kk:integer;
+begin
+screen_tmp:=ImageFromCanvas(0,0,GetWidth,GetHeight);
+SetColor(255,255,255);
+fillRect(GetWidth/2-64, GetHeight/2-48, 128, 96);
+DrawImage(imbtitle, GetWidth/2-64, GetHeight/2-48);
+SetColor(0,0,0);
+DrawText(str1, GetWidth/2-GetStringWidth(str1)/2, GetHeight/2-30);
+DrawText(str2, GetWidth/2-GetStringWidth(str2)/2, GetHeight/2-15);
+DrawText(str3, GetWidth/2-GetStringWidth(str3)/2, GetHeight/2);
+DrawImage(ibutton, GetWidth/2-25, GetHeight/2+28);
+DrawText('OK', GetWidth/2-GetStringWidth('OK')/2, GetHeight/2+28+9-GetStringHeight('OK')/2);
+Repaint;
+repeat kk:=GetKeyPressed until (kk=KE_KEY5)or(KeyToAction(kk)=GA_FIRE);
+DrawImage(screen_tmp,0,0);
+Repaint;
+Delay(500);
+end;
+
+procedure CapturedScreen;
+begin
+SetColor(255,255,255);
+FillRect(0,GetHeight/2-15,GetWidth, 30);
+SetColor(0,0,0);
+DrawText('Сохранение снимка...', GetWidth/2-GetStringWidth('Сохранение снимка...')/2, GetHeight/2-15);
+DrawText('Пожалуйста, подождите.', GetWidth/2-GetStringWidth('Пожалуйста, подождите.')/2, GetHeight/2);
+Repaint;
+end;
+
+function RequestString(str:string):string;
+var textField_id: integer;  
+    exitCmd, clicked: command; 
+    rn:string;
+begin 
+ClearForm;
+textField_id := formAddTextField(str, '', 255, TF_ANY);  
+exitCmd := CreateCommand('OK', CM_OK, 1); 
+AddCommand(exitCmd); 
+showForm;
+repeat 
+clicked := GetClickedCommand; 
+until clicked <> EmptyCommand; 
+RequestString := FormGetText(textField_id);
+ShowCanvas;
+end;
+
+function RequestNumber(str:string):integer;
+var textField_id: integer;  
+    exitCmd, clicked: command; 
+    rn:string;
+begin 
+ClearForm;
+textField_id := formAddTextField(str, '', 5, TF_NUMERIC);  
+exitCmd := CreateCommand('OK', CM_OK, 1); 
+AddCommand(exitCmd); 
+showForm;
+repeat 
+clicked := GetClickedCommand; 
+until clicked <> EmptyCommand; 
+rn := FormGetText(textField_id);
+RequestNumber := StringToInteger(rn);
+ShowCanvas;
+end;
+
+procedure Viewer;
+var message: integer;
+    ipic2:image;
+    ipw,iph:INTEGER;
+begin
+SetColor(255,255,255);
+fillRect(0,0,GetWidth,GetHeight);
+SetColor(0,0,0);
+DrawImage(ifon,GetWidth/2-GetImageWidth(ifon)/2,GetHeight/2-GetImageHeight(ifon)/2);
+DrawImage(ititle, 0, 0);
+FillRect(0,18,GetWidth,GetHeight);
+DrawImage(ipic, GetWidth/2-GetImageWidth(ipic)/2, GetHeight/2-GetImageHeight(ipic)/2+1);
+SetColor(0,0,0);
+DrawText('Viewer', 2, 9-GetStringHeight('Viewer')/2);
+if (CursorX>GetWidth-26)and(CursorY<18) then DrawImage(ix2,GetWidth-26,0) else DrawImage(ix, GetWidth-26, 0);
+if (CursorX>GetWidth-49)and(CursorX<GetWidth-26)and(CursorY<18) then DrawImage(iminimize2, GetWidth-49, 0) else DrawImage(iminimize, GetWidth-49, 0);
+if DrawPopupItem('На фон(ц)', GetWidth-64, GetHeight-16-90, 64, 15) then begin
+																						                              ifon:=imloadjsr75.loadimage(ViewerFileName);
+																						                              memclean.clean;
+																						                              DelayAfterDraw:=true;
+																						                              end;
+if DrawPopupItem('На фон(р)', GetWidth-64, GetHeight-16-75, 64, 15) then begin
+                                                                          ifon:=Resize_Image(imloadjsr75.loadimage(ViewerFileName), GetWidth, GetHeight);
+                                                                          memclean.clean;
+                                                                          DelayAfterDraw:=true;
+                                                                          end;
+if DrawPopupItem('Конв.в JPEG', GetWidth-64, GetHeight-16-60, 64, 15) then begin
+                                                                            StartWait;
+                                                                            Jpeg.saveimagetofile(imloadjsr75.loadimage('/'+ViewerFileName), 100, '/'+ViewerFileName+'.jpg');
+                                                                            memclean.clean;
+                                                                            DelayAfterDraw:=true;
+                                                                            EndWait;
+                                                                            end;
+if DrawPopupItem('Конв.в PNG', GetWidth-64, GetHeight-16-45, 64, 15) then begin
+                                                                           StartWait;
+                                                                           if save_png(imloadjsr75.loadimage('/'+ViewerFileName), ViewerFileName+'.png')=1 then gg1:=true;
+                                                                           memclean.clean;
+                                                                           DelayAfterDraw:=true;
+                                                                           EndWait;
+                                                                           end;
+if DrawPopupItem('Конв.в BMP', GetWidth-64, GetHeight-16-30, 64, 15) then begin
+                                                                           StartWait;
+                                                                           savebmp(imloadjsr75.loadimage('/'+ViewerFileName), '/'+ViewerFileName+'.bmp');
+                                                                           memclean.clean;
+                                                                           DelayAfterDraw:=true;
+                                                                           EndWait;
+                                                                           end;
+if DrawPopupItem('Resize', GetWidth-64, GetHeight-16-15, 64, 15) then begin
+                                                                       // c багом!
+                                                                       ipic2:=imloadjsr75.loadimage('/'+ViewerFileName);
+                                                                       ipw:=RequestNumber('Ширина');
+                                                                       iph:=RequestNumber('Высота');
+                                                                       ipic2:=resize_image(ipic2, ipw, iph);
+                                                                       fillrect(0,0,GetWidth,GetHeight);
+                                                                       DrawImage(ipic2,0,0);
+                                                                       Repaint;
+                                                                       Delay(5000);
+                                                                       end;
+message:=ID_NONE;
+if (CursorX>GetWidth-26)and(CursorY<18)and(KeyToAction(keycode)=GA_FIRE) then message:=ID_CLOSE;
+if (CursorX>GetWidth-49)and(CursorX<GetWidth-26)and(CursorY<18)and(KeyToAction(keycode)=GA_FIRE) then message:=ID_MINIMIZE;
+if LockAll then message:=ID_NONE;
+if message=ID_CLOSE then begin activeWindow:=id_desktop; ViewerIsActive:=false; end;
+if message=ID_MINIMIZE then activeWindow:=id_desktop;
+end;
+
+procedure SmsSender;
+var message:command;
+begin
+ClearForm;
+id_ok:=CreateCommand('ОК', CM_OK, 1);
+id_destroy:=CreateCommand('Отмена', CM_OK, 1);
+AddCommand(id_ok);
+AddCommand(id_destroy);
+id_textfield1:=FormAddTextField('Кому:', '', 100, TF_PHONENUMBER);
+id_textfield2:=FormAddTextField('Текст сообщения:', '', 100, TF_ANY);
+SetFormTitle('Отправка SMS');
+ShowForm;
+repeat message:=GetClickedCommand until (message=id_ok)or(message=id_destroy);
+if message=id_ok then begin
+if SmsStartSend('sms://'+formGetText(id_textfield1), formGetText(id_textfield2)) then gg1:=true;
+SetFormTitle('Идет отправка...');
+while SmsIsSending do Delay(100);
+if SmsWasSuccessfull then SetFormTitle('Отправлено') else SetFormTitle('Ошибка!');
+Delay(1000);
+end;
+ShowCanvas;
+end;
+
+procedure WindowsMediaPlayer;
+var message:integer;
+begin
+message:=DrawWindowAndTitle(0,0,0, 'Windows Media Player');
+DrawImage(ilogo, GetWidth/2-(71/2), GetHeight/2-41);
+SetColor(0,128,0);
+DrawText(wmpFileName, 0, 18);
+SetColor(0,0,0);
+DrawImage(iwmpdown, 0, GetHeight-36);
+if DrawGraphicButton(iwmpplay, iwmpplay, 0, GetHeight-36, 19, 20) then media:=play;
+if DrawGraphicButton(iwmpstop, iwmpstop, 19,GetHeight-36, 14, 20) then begin videocnv.stop; media:=pause; end;
+{И КНОПКУ ВЫБОРА ФАЙЛА ИЗОБРАЗИ!!!}
+DrawImage(iwmpsound, GetWidth-53, GetHeight-36); {ну какой дурак будет вырубать звук...}
+if message=ID_CLOSE then begin activeWindow:=id_desktop; wmpIsActive:=false; media:=pause; end;{НЕ ЗАБУДЬ ПРОПИСАТЬ ОСТАНОВКУ}
+if message=ID_MINIMIZE then activeWindow:=id_desktop;
+end;
+
+procedure IE;
+var message: command;
+begin
+CursorY:=30;
+ClearForm;
+id_ok:=CreateCommand('ОК', CM_OK, 1);
+id_destroy:=CreateCommand('Отмена', CM_OK, 1);
+AddCommand(id_ok);
+AddCommand(id_destroy);
+id_textfield1:=FormAddTextField('Введите URL:', 'http://', 500, TF_ANY);
+SetFormTitle('Internet Explorer');
+ShowForm;
+repeat message:=GetClickedCommand until (message=id_ok)or(message=id_destroy);
+ShowCanvas;
+if message=id_ok then gg2:=platform_request(formGetText(id_textfield1));
+ShowCanvas;
+end;
+
+procedure CPmouse;
+var message:integer;
+begin
+message:=DrawWindowAndTitle(255,255,255, 'Выбор указателя');
+if DrawGraphicButton(imouse1,imouse1, 10, 28, 20, 20) then ikursor:=imouse1;
+if DrawGraphicButton(imouse2,imouse2, 10, 58, 20, 20) then ikursor:=imouse2;
+if DrawGraphicButton(imouse3,imouse3, 10, 88, 20, 20) then ikursor:=imouse3;
+
+if message=ID_CLOSE then begin activeWindow:=id_cpanel; cpIsActive:=true; cpmouseIsActive:=false; DelayAfterDraw:=true; end;
+if message=ID_MINIMIZE then begin activeWindow:=id_desktop end;
+end;
+
+procedure CPsysinfo;
+var message:integer;
+begin
+message:=DrawWindowAndTitle(255,255,255, 'Система');
+SetColor(0,0,0);
+DrawText('Экран: '+IntegerToString(GetWidth)+'x'+IntegerToString(GetHeight), 5, 20);
+DrawText(IntegerToString(sys_colors)+' цветов', 5, 35);
+DrawText('Всего памяти: '+IntegerToString(memory.total), 5, 65);
+DrawText('Свободно: '+IntegerToString(memory.free), 5, 80);
+DrawText('Язык: '+GetProperty('microedition.locale'),5,100);
+memclean.clean;
+
+if message=ID_CLOSE then begin activeWindow:=id_cpanel; cpIsActive:=true; cpsysinfoIsActive:=false; DelayAfterDraw:=true; end;
+if message=ID_MINIMIZE then begin activeWindow:=id_desktop end;
+end;
+
+procedure ControlPanel;
+var message:integer;
+msg:command;
+k:integer;
+begin
+cpMouseIsActive:=false;
+cpSysInfoIsActive:=false;
+
+message:=DrawWindowAndTitle(255,255,255, 'Панель управления');
+
+if DrawGraphicButton(imouse,imouse, 10, 28, 20, 20) then begin ActiveWindow:=ID_cp_mouse; cpMouseIsActive:=true; cpIsActive:=false; end;
+if DrawGraphicButton(ikomp,ikomp, 40, 28, 20, 20) then begin ActiveWindow:=ID_cp_sysinfo; cpSysInfoIsActive:=true; cpIsActive:=false; end;
+if DrawGraphicButton(ipicdir,ipicdir, 70, 28, 20, 20) then begin
+                                                    CursorY:=48;
+                                                    ClearForm;
+                                                    id_ok:=CreateCommand('ОК', CM_OK, 1);
+                                                    AddCommand(id_ok);
+                                                    id_textfield1:=FormAddTextField('Сохранить скриншот в:', screenshots_path, 250, TF_ANY);
+                                                    SetFormTitle('PrintScreen');
+ShowForm;
+repeat msg:=GetClickedCommand until (msg=id_ok)or(msg=id_destroy);
+ShowCanvas;
+screenshots_path:=FormGetText(id_textfield1);
+                                                    end;
+if DrawGraphicButton(imouse,imouse, 10, 58, 20, 20) then begin
+                                                          repeat K:=GetKeyPressed;
+                                                                  if k=KE_KEY1 then CursorSpeed:=1;
+                                                                  if k=KE_KEY2 then CursorSpeed:=2;
+                                                                  if k=KE_KEY3 then CursorSpeed:=3;
+                                                                  if k=KE_KEY4 then CursorSpeed:=4;
+                                                                  if k=KE_KEY5 then CursorSpeed:=5;
+                                                                  if k=KE_KEY6 then CursorSpeed:=6;
+                                                                  if k=KE_KEY7 then CursorSpeed:=7;
+                                                                  if k=KE_KEY8 then CursorSpeed:=8;
+                                                                  if k=KE_KEY9 then CursorSpeed:=9;
+                                                                  SetColor(255,255,255);
+                                                                  fillRect(0,GetHeight/2-15,GetWidth,30);
+                                                                  SetColor(0,0,0);
+                                                                  DrawText('Скорость мыши: '+IntegerToString(CursorSpeed), GetWidth/2-GetStringWidth('Скорость мыши: '+IntegerToString(CursorSpeed))/2, GetHeight/2-GetStringHeight('Скорость мыши: '+IntegerToString(CursorSpeed))/2);
+                                                                  Repaint;
+                                                                  Delay(50);
+                                                          until (k=KE_STAR) or (k=KE_POUND);
+                                                          end;
+
+if DrawGraphicButton(itester,itester, 40, 58, 20, 20) then BenchMark;
+
+if (cursorx>10)and(cursory>28)and(CursorX<30)and(CursorY<48) then ShowHint ('Мышь');
+if (cursorx>40)and(cursory>28)and(CursorX<60)and(CursorY<48) then ShowHint ('Система');
+if (cursorx>70)and(cursory>28)and(CursorX<90)and(CursorY<48) then ShowHint ('PrintScreen');
+if (cursorx>10)and(cursory>58)and(CursorX<30)and(CursorY<78) then ShowHint ('Скорость мыши');
+if (cursorx>40)and(cursory>58)and(CursorX<60)and(CursorY<78) then ShowHint ('XBenchMark');
+
+if message=ID_CLOSE then begin activeWindow:=id_desktop; cpIsActive:=false; end;
+if message=ID_MINIMIZE then activeWindow:=id_desktop;
+end;
+
+procedure WFileOpen(fpath:string; fname:string);
+var msg:command;
+    kk:integer;
+    text_full_height:integer;
+begin
+
+if GetChar(fname, Length(fname)-1)='3' then begin
+																						 ActiveWindow:=Id_wmp;
+																						 WmpIsActive:=true;
+																						 media:=pause;
+																						 wmpFileName:=fname;
+																						 media:=loadfilefs('/'+fpath+fname, mmapi.mp3file, 100);
+																						 media:=play;
+																						 end; 
+																						 
+if GetChar(fname, Length(fname)-1)='d' then begin
+																						 ActiveWindow:=Id_wmp;
+																						 WmpIsActive:=true;
+																						 media:=pause;
+																						 wmpFileName:=fname;
+																						 media:=loadfilefs('/'+fpath+fname, mmapi.midifile, 100);
+																						 media:=play;
+																						 end; 
+																						 
+if GetChar(fname, Length(fname)-1)='v' then begin
+																						 ActiveWindow:=Id_wmp;
+																						 WmpIsActive:=true;
+																						 media:=pause;
+																						 wmpFileName:=fname;
+																						 media:=loadfilefs('/'+fpath+fname, mmapi.wavefile, 100);
+																						 media:=play;
+																						 end; 
+																						 
+if GetChar(fname, Length(fname)-1)='r' then begin
+																						 ActiveWindow:=Id_wmp;
+																						 WmpIsActive:=true;
+																						 media:=pause;
+																						 wmpFileName:=fname;
+																						 media:=loadfilefs('/'+fpath+fname, mmapi.amrfile, 100);
+																						 media:=play;
+																						 end; 
+																						 
+if GetChar(fname, Length(fname)-1)='p' then begin
+																						 media:=pause;
+																						 videocnv.init_display(1);
+																						 videocnv.load('/'+fpath+fname,'video/3gpp');
+																						 videocnv.set_location(0, GetHeight/2-GetWidth/4*3/2);
+																						 videocnv.set_size(GetWidth, GetWidth/4*3);
+																						 videocnv.set_visible(1);
+																						 videocnv.set_volume(100);
+																						 videocnv.start;
+																						 Delay(videocnv.get_duration);
+																						 videocnv.close_player;
+																						 ShowCanvas;
+																						 end; 
+																						 
+if GetChar(fname, Length(fname)-1)='g' then begin
+																						 ActiveWindow:=ID_viewer;
+	 																					 ViewerIsActive:=true;
+	 																					 ViewerFileName:=fpath+fname;
+																						 ipic:=nil;
+	 																					 memclean.clean;
+																						 ipic:=imloadjsr75.loadimage('/'+fpath+fname);
+																						 if GetImageWidth(ipic)>GetWidth then ipic:=resize_image(ipic,GetWidth,(GetImageHeight(ipic)*GetWidth)/GetImageWidth(ipic));
+																						 if GetImageHeight(ipic)>GetHeight-34 then ipic:=resize_image(ipic,(GetImageWidth(ipic)*(GetHeight-34))/GetImageHeight(ipic), GetHeight-34);
+																						 end; 
+																						 
+if GetChar(fname, Length(fname)-1)='f' then begin
+																						 ActiveWindow:=ID_viewer;
+	 																					 ViewerIsActive:=true;
+	 																					 ViewerFileName:=fpath+fname;
+																						 ipic:=nil;
+	 																					 memclean.clean;
+																						 ipic:=imloadjsr75.loadimage('/'+fpath+fname);
+																						 if GetImageWidth(ipic)>GetWidth then ipic:=resize_image(ipic,GetWidth,(GetImageHeight(ipic)*GetWidth)/GetImageWidth(ipic));
+																						 if GetImageHeight(ipic)>GetHeight-34 then ipic:=resize_image(ipic,(GetImageWidth(ipic)*(GetHeight-34))/GetImageHeight(ipic), GetHeight-34);
+																						 end; 
+																						 
+if GetChar(fname, Length(fname)-1)='t' then begin
+                                             DelayAfterDraw:=true;
+																						 if jsr75i.open_file('/'+fpath+fname)=1 then gg1:=true;
+																						 {
+																						 ClearForm;
+																						 id_destroy:=CreateCommand('Закрыть', CM_OK, 1);
+																						 AddCommand(id_destroy);
+																						 SetFormTitle('Просмотр файла');
+																						 id_string:=FormAddString(read_file('/'+fpath+fname));
+																						 ShowForm; 
+																						 repeat msg:=GetClickedCommand until msg=id_destroy;
+																						 if jsr75i.close_file('/'+fpath+fname)=1 then gg1:=true;
+																						 ShowCanvas;
+																						 }
+
+                                             font32.init(1);
+                                             Font(0);
+                                             LoadFont('Verdana_7');
+                                             TextWindow(0,0,GetWidth-16,GetHeight);
+                                             text_full_height:=Format(read_file('/'+fpath+fname), 0);
+                                                                                          
+                                             repeat 
+                                             kk:=GetKeyPressed;
+                                             if keyToAction(kk)=GA_DOWN then MoveDown(TextHeight);
+                                             if keyToAction(kk)=GA_UP then MoveUp(TextHeight);
+                                             if keyToAction(kk)=GA_RIGHT then MoveDown(GetHeight);
+                                             if keyToAction(kk)=GA_LEFT then MoveUp(GetHeight);
+                                             SetColor(255,255,255);
+                                             fillRect(0,0,GetWidth,GetHeight);
+                                             DrawTextWindow;
+                                             DrawImage(ilistup,GetWidth-16,0);
+                                             DrawImage(ilistdown,GetWidth-16,GetHeight-16);
+                                             DrawImage(ilistpos,GetWidth-16,(GetHeight-32-16)*font32.GetPosition/text_full_height+16);
+                                             Repaint;
+                                             Delay(50);
+                                                                                          
+                                             until (kk=KE_STAR)or(kk=KE_POUND);
+                                             
+                                             DelayAfterDraw:=true;
+                                             
+																						 end;
+
+end;
+
+procedure ClearArray;
+var I:integer;
+begin
+for I:=1 to 999 do mc_array[I]:='';
+end;
+
+procedure ShowDir;
+var I:integer;
+r: integer;
+K: string;
+begin
+if mc_path<>mc_path2 then begin
+                           mc_path:=mc_path2;
+                           if mc_path='' then begin
+                                                mc_data:=Get_roots;
+                                                mc_fdata:='';
+                                                
+                                                ClearArray;
+																								I:=1;
+																								r:=0;
+                                                repeat 
+																								mc_array[I]:=mc_array[I]+GetChar(mc_data, r);
+																								r:=r+1;
+																								if GetChar(mc_data, r)='|' then begin r:=r+1; I:=I+1; end;
+																								until r>=Length(mc_data)
+                                                end;
+                                          else begin
+                                               ClearArray;
+                                               I:=1;
+                                               mc_array[1]:=findfirst(mc_path);
+                                               if mc_array[1]<>'' then begin
+                                                                        repeat
+                                                                        I:=I+1;
+                                                                        mc_array[I]:=findnext;
+                                                                        until mc_array[I]='';
+                                                                        end;
+                                               end;
+                           end;
+end;
+
+procedure BenchMark;
+type doubleXY=record
+      x,y,x2,y2:integer;
+      end;
+var Figura:array[1..4] of doubleXY;
+    z,c:integer;
+    ff:real;
+begin
+SetColor(0,0,0);
+fillRect(0,0,GetWidth,GetHeight);
+SetColor(255,255,255);
+DrawText('m1kc project', GetWidth/2-GetStringWidth('m1kc project')/2, GetHeight/2-GetStringHeight('m1kc project')/2);
+Repaint;
+Delay(1000);
+SetColor(0,0,0);
+fillRect(0,0,GetWidth,GetHeight);
+SetColor(255,255,255);
+
+//test 1
+
+Figura[1].x:=10;
+Figura[1].y:=10;
+Figura[2].x:=50;
+Figura[2].y:=10;
+Figura[3].x:=50;
+Figura[3].y:=50;
+Figura[4].x:=10;
+Figura[4].y:=50;
+
+for c:=1 to 50 do begin
+for z:=1 to 4 do begin
+                  Figura[z].x:=Figura[z].x+1;
+                  Figura[z].y:=Figura[z].y+2;
+                  Figura[z].x2:=Figura[z].x+(GetWidth/2-Figura[z].x)/5;
+                  Figura[z].y2:=Figura[z].y+(GetWidth/2-Figura[z].y)/5;
+                  end;
+                  SetColor(0,0,0);
+                  fillRect(0,0,GetWidth,GetHeight);
+                  SetColor(255,255,255);
+                  
+                  DrawText('3d-тест: куб',5,5);
+                  
+                  DrawLine(Figura[1].x,Figura[1].y,Figura[1].x2,Figura[1].y2);
+                  DrawLine(Figura[2].x,Figura[2].y,Figura[2].x2,Figura[2].y2);
+                  DrawLine(Figura[3].x,Figura[3].y,Figura[3].x2,Figura[3].y2);
+                  DrawLine(Figura[4].x,Figura[4].y,Figura[4].x2,Figura[4].y2);
+                  
+                  DrawLine(Figura[1].x,Figura[1].y,Figura[2].x,Figura[2].y);
+                  DrawLine(Figura[2].x,Figura[2].y,Figura[3].x,Figura[3].y);
+                  DrawLine(Figura[3].x,Figura[3].y,Figura[4].x,Figura[4].y);
+                  DrawLine(Figura[4].x,Figura[4].y,Figura[1].x,Figura[1].y);
+                  
+                  DrawLine(Figura[1].x2,Figura[1].y2,Figura[2].x2,Figura[2].y2);
+                  DrawLine(Figura[2].x2,Figura[2].y2,Figura[3].x2,Figura[3].y2);
+                  DrawLine(Figura[3].x2,Figura[3].y2,Figura[4].x2,Figura[4].y2);
+                  DrawLine(Figura[4].x2,Figura[4].y2,Figura[1].x2,Figura[1].y2);
+                  
+                  Delay(50);
+                  Repaint;
+                  end;
+
+// второй тест
+
+Figura[1].x:=25;
+Figura[1].y:=10;
+Figura[2].x:=50;
+Figura[2].y:=25;
+Figura[3].x:=25;
+Figura[3].y:=50;
+Figura[4].x:=10;
+Figura[4].y:=25;
+
+for c:=1 to 50 do begin
+for z:=1 to 4 do begin
+                  Figura[z].x:=Figura[z].x+1;
+                  Figura[z].y:=Figura[z].y+2;
+                  Figura[z].x2:=Figura[z].x+(GetWidth/2-Figura[z].x)/5;
+                  Figura[z].y2:=Figura[z].y+(GetWidth/2-Figura[z].y)/5;
+                  end;
+                  SetColor(0,0,0);
+                  fillRect(0,0,GetWidth,GetHeight);
+                  SetColor(255,255,255);
+                  
+                  DrawText('3d-тест: ромб',5,5);
+                  
+                  DrawLine(Figura[1].x,Figura[1].y,Figura[1].x2,Figura[1].y2);
+                  DrawLine(Figura[2].x,Figura[2].y,Figura[2].x2,Figura[2].y2);
+                  DrawLine(Figura[3].x,Figura[3].y,Figura[3].x2,Figura[3].y2);
+                  DrawLine(Figura[4].x,Figura[4].y,Figura[4].x2,Figura[4].y2);
+                  
+                  DrawLine(Figura[1].x,Figura[1].y,Figura[2].x,Figura[2].y);
+                  DrawLine(Figura[2].x,Figura[2].y,Figura[3].x,Figura[3].y);
+                  DrawLine(Figura[3].x,Figura[3].y,Figura[4].x,Figura[4].y);
+                  DrawLine(Figura[4].x,Figura[4].y,Figura[1].x,Figura[1].y);
+                  
+                  DrawLine(Figura[1].x2,Figura[1].y2,Figura[2].x2,Figura[2].y2);
+                  DrawLine(Figura[2].x2,Figura[2].y2,Figura[3].x2,Figura[3].y2);
+                  DrawLine(Figura[3].x2,Figura[3].y2,Figura[4].x2,Figura[4].y2);
+                  DrawLine(Figura[4].x2,Figura[4].y2,Figura[1].x2,Figura[1].y2);
+                  
+                  Delay(50);
+                  Repaint;
+                  end;
+
+// test 3
+
+SetColor(0,0,0);
+fillRect(0,0,GetWidth,GetHeight);
+SetColor(255,255,255);
+                  
+DrawText('Арифметический тест:',5,5);
+
+c:=GetCurrentTime;
+
+for z:=1 to 359 do begin
+
+SetColor(0,0,0);
+fillRect(0,0,GetWidth,GetHeight);
+SetColor(255,255,255);
+                  
+DrawText('Арифметический тест:',5,5);
+DrawText(IntegerToString(z)+'/360',5,25);
+ff:=sin(z);
+ff:=cos(z);
+ff:=tan(z);
+
+Repaint;
+
+end;
+
+SetColor(0,0,0);
+fillRect(0,0,GetWidth,GetHeight);
+SetColor(255,255,255);
+                  
+DrawText('Арифметический тест.',5,5);
+c:=100-(GetCurrentTime-c);
+if c<0 then c:=0;
+DrawText('Баллы:'+IntegerToString(c),5,25);
+
+Repaint;
+
+Delay(2500);
+end;
+
+procedure MyComputer;
+var message:integer;
+    msg: command;
+    I: integer;
+    P: integer;
+    R: integer;
+    tmp:string;
+    st:integer;
+    itemscount:integer;
+begin
+message:=DrawWindowAndTitle(255,255,255, 'Мой компьютер');
+SetClip(0,18,GetWidth,GetHeight-18);
+DrawImage(ifon2,GetWidth/2-GetImageWidth(ifon2)/2,GetHeight/2-GetImageHeight(ifon2)/2);
+SetClip(0,0,GetWidth,GetHeight);
+setcolor(0,0,0);
+{if mc_path2='' then begin mc_path2:='/'; ShowDir; end; else }ShowDir;
+
+if DrawGraphicButton(iupdate, iupdate, GetWidth-15, 18, 15, 15) then mc_path:='';
+
+if DrawGraphicButton(inewfolder, inewfolder, GetWidth-31, 18, 15, 15) then begin
+                                                                            CursorX:=GetWidth-32;
+                                                                            if mkdir(mc_path+RequestString('Создать папку'))=1 then gg1:=true;
+                                                                            end;
+
+if DrawGraphicButton(iup,iup, 0, 18, 12, 15) then begin
+                                                    if mc_path<>'' then begin
+                                                                         P:=Length(mc_path2)-1;
+                                                                         repeat P:=P-1 until (GetChar(mc_path2, P)='/')or(P=-1);
+                                                                         tmp:=mc_path2;
+                                                                         mc_path2:='';
+                                                                         mc_path2:=Copy(tmp, 0, P+1);
+                                                                         StartPosition:=1;
+                                                                         DelayAfterDraw:=true;
+                                                                         end;
+                                                    end;
+
+I:=StartPosition;
+repeat if mc_array[I]<>'' then begin
+                                if I<=StartPosition+listSize+1 then begin
+                                SetClip(0,0,GetWidth-16,GetHeight);
+                                St:=DrawHiddenButton(mc_array[I], 15, 18+(15*(I-StartPosition+1)));
+                                SetClip(0,0,GetWidth,GetHeight);
+                                if st=1 then begin
+                                if GetChar(mc_array[I], Length(mc_array[I])-1)='/' then begin mc_path2:=mc_path+mc_array[I]; StartPosition:=1; end else begin
+                                DelayAfterDraw:=true;
+                                WFileOpen(mc_path,mc_array[i]);
+                                end;
+                                DelayAfterDraw:=true;
+                                end;
+                                if (st=2)and(GetChar(mc_array[I], Length(mc_array[I])-1)<>'/') then begin
+                                DelayAfterDraw:=true;
+                                TurnPopup(true);
+                                FMIndex:=I;
+                                end;
+                                
+                                if I<=StartPosition+listSize+1 then DrawIcon(i, 0, 18+(15*(I-StartPosition+1)));
+                                end;
+I:=I+1;
+                                end;
+until mc_array[I]='';                                       
+
+itemscount:=i-1;
+
+if itemscount>listsize then
+if DrawGraphicButton(ilistdown,ilistdown, GetWidth-16, GetHeight-32, 16, 16) then begin
+                                                                         keycode:=KE_NONE;
+                                                                         StartPosition:=StartPosition+1;
+                                                                         if mc_array[StartPosition+ListSize]='' then StartPosition:=StartPosition-1;
+                                                                         end;
+
+if itemscount>listsize then
+if DrawGraphicButton(ilistup,ilistup, GetWidth-16, 33, 16, 16) then begin
+                                                             Keycode:=KE_NONE;
+                                                             StartPosition:=StartPosition-1;
+                                                             if StartPosition=0 then StartPosition:=1;
+                                                             end;
+                           
+if itemscount>listsize then
+if StartPosition+listsize=itemscount then DrawImage(ilistpos, GetWidth-16, Getheight-48) else 
+if StartPosition=1 then DrawImage(ilistpos, GetWidth-16, 49) else
+DrawImage(ilistpos, GetWidth-16, (GetHeight-48-49)/(itemscount-listsize)*StartPosition+49);
+
+
+
+
+                                                             
+if GetStringWidth(mc_path)+45<GetWidth then DrawText(mc_path, 13, 18+(15/2)-(GetStringHeight(mc_path)/2) )
+                                       else begin
+                                             SetClip(13,0,GetWidth-13-31,GetHeight);
+                                             DrawText(mc_path, GetWidth-GetStringWidth(mc_path)-31, 18+(15/2)-(GetStringHeight(mc_path)/2) );
+                                             SetClip(0,0,GetWidth,GetHeight);
+                                             end;
+
+SetColor(128,128,128);
+DrawLine(3, 33, GetWidth-3, 33);
+SetColor(0,0,0);
+if (CursorX>0)and(CursorX<12)and(CursorY>18)and(CursorY<33) then ShowHint('Вверх');
+if (CursorX>GetWidth-31)and(CursorX<GetWidth-15)and(CursorY>18)and(CursorY<33) then ShowHint('Создать папку');
+if (CursorX>GetWidth-15)and(CursorX<GetWidth)and(CursorY>18)and(CursorY<33) then ShowHint('Обновить');
+
+if message=ID_CLOSE then begin
+                          activeWindow:=id_desktop;
+                          mycomputerisactive:=false;
+                          mc_path2:='';
+                          end;
+if message=ID_MINIMIZE then activeWindow:=id_desktop;
+end;
+
+procedure Desktop;
+begin
+SetColor(0,0,0);
+fillRect(0,0,GetWidth,GetHeight);
+DrawImage(ifon,GetWidth/2-GetImageWidth(ifon)/2,GetHeight/2-GetImageHeight(ifon)/2);
+DrawImage(ikomp, 10, 10);
+DrawImage(imail, 10, 40);
+DrawImage(ipanel, 10, 70);
+DrawImage(iwmp, 10, 100);
+DrawImage(iexplorer, 40, 10);
+DrawImage(itetris, 40, 40);
+if shortcutName<>'' then DrawImage(ishortcut, 40, 70);
+
+if (cursorx>10)and(cursory>10)and(CursorX<30)and(CursorY<30) then ShowHint('Мой компьютер');
+if (cursorx>10)and(cursory>40)and(CursorX<30)and(CursorY<60) then ShowHint('Отправить SMS');
+if (cursorx>10)and(cursory>70)and(CursorX<30)and(CursorY<90) then ShowHint('Панель управления');
+if (cursorx>10)and(cursory>100)and(CursorX<30)and(CursorY<120) then ShowHint('Windows Media Player');
+if (cursorx>40)and(cursory>10)and(CursorX<60)and(CursorY<30) then ShowHint('Internet Explorer');
+if (cursorx>40)and(cursory>40)and(CursorX<60)and(CursorY<60) then ShowHint('Тетрис');
+if (cursorx>40)and(cursory>70)and(CursorX<60)and(CursorY<90)and(shortcutName<>'') then ShowHint('Ярлык');
+
+if not LockAll then begin
+if (KeyToAction(keycode)=GA_FIRE)and(cursorx>10)and(cursory>10)and(CursorX<30)and(CursorY<30) then begin DelayAfterDraw:=true; activewindow:=ID_mycomputer; mycomputerIsActive:=true; end;
+if (KeyToAction(keycode)=GA_FIRE)and(cursorx>10)and(cursory>40)and(CursorX<30)and(CursorY<60) then begin SmsSender; CursorY:=60; end;
+if (KeyToAction(keycode)=GA_FIRE)and(cursorx>10)and(cursory>100)and(CursorX<30)and(CursorY<120) then begin activewindow:=ID_wmp; WmpIsActive:=true; end;
+if (KeyToAction(keycode)=GA_FIRE)and(cursorx>10)and(cursory>70)and(CursorX<30)and(CursorY<90) then begin activewindow:=ID_cpanel; cpIsActive:=true; end;
+if (KeyToAction(keycode)=GA_FIRE)and(cursorx>40)and(cursory>10)and(CursorX<60)and(CursorY<30) then IE;
+if (KeyToAction(keycode)=GA_FIRE)and(cursorx>40)and(cursory>40)and(CursorX<60)and(CursorY<60) then begin CursorY:=60; RunTetris; end;
+if (KeyToAction(keycode)=GA_FIRE)and(cursorx>40)and(cursory>70)and(CursorX<60)and(CursorY<90) then WFileOpen(shortcutPath, shortcutName);
+end;
+end;
+
+begin
+  {Заставка}
+  ilogo:=LoadImage('/logo.png');
+  SetColor(0,0,0);
+  fillRect(0,0,getWidth,GetHeight);
+  SetColor(255,255,255);
+  DrawText('m1kc BIOS v.1.42',5,5);
+  Repaint;
+  Delay(1500);
+  DrawText('Инициализация...', 5, 20);
+  Repaint;
+  Delay(1500);
+  DrawText('InitScreen ok', 10, 35+15);
+  Repaint;
+  DrawText('InitKeyboard ok', 10, 50+15);
+  DrawText('(standard configuration)', 10 , 65+15);
+  Repaint;
+  DrawText('Heap: '+IntegerToString(memory.total), 10, 80+15);
+  Repaint;
+  Delay(3000);
+  SetColor(0,0,0);
+  fillRect(0,0,getWidth,GetHeight);
+  SetColor(255,255,255);
+  DrawText('Loading WinMobile...', GetWidth/2-GetStringWidth('Loading WinMobile...')/2, GetHeight-25);
+  DrawImage(ilogo, GetWidth/2-GetImageWidth(ilogo)/2, GetHeight/2-GetImageHeight(ilogo)/2);
+  Repaint;
+  Delay(2500);
+  {Загрузка ресурсов}
+  ikursor:=LoadImage('/cursorzz.png');
+  ifon:=LoadImage('/55zzz.png');
+  ifon:=resize_image(ifon, GetWidth, GetHeight);
+  ifon2:=SetOpaque(ifon, 128);
+  idown:=LoadImage('/140zz.png');
+  {idown:=LoadImage('/zza.png');
+  idown:=resize_image(idown,GetWidth,16);}
+  ipuskbutton:=LoadImage('/puskbutton.png');
+  ikomp:=LoadImage('/mycomp.png');
+  imail:=LoadImage('/mail.png');
+  ipanel:=LoadImage('/cpanel2.png');
+  iwmp:=LoadImage('/wmplayer.png');
+  ibutton:=LoadImage('/button.png');
+  ititle:=LoadImage('/wtitlez.png');
+  ititle:=resize_image(ititle, GetWidth-49, 18);
+  ititle:=SetOpaque(ititle, 128);
+  ix:=LoadImage('/barzz.png');
+  ix:=SetOpaque(ix, 128);
+  ix2:=LoadImage('/barzzl.png');
+  ix2:=SetOpaque(ix2, 128);
+  iminimize:=LoadImage('/minimizezz.png');
+  iminimize:=SetOpaque(iminimize, 128);
+  iminimize2:=LoadImage('/minimizezzl.png');
+  iminimize2:=SetOpaque(iminimize2, 128);
+  ilogo:=LoadImage('/logo.png');
+  iwmpdown:=LoadImage('/wmp-down.png');
+  iwmpplay:=LoadImage('/wmp-playbtn.png');
+  iwmpstop:=LoadImage('/wmp-stopbtn.png');
+  iwmpsound:=LoadImage('/wmp-sound.png');
+  imouse:=LoadImage('/muk.png');
+  imouse1:=LoadImage('/cursorzz.png');
+  imouse2:=LoadImage('/kur.png');
+  imouse3:=LoadImage('/kurs2.png');
+  idiricon:=LoadImage('/diricon.png');
+  ifileicon:=LoadImage('/motorf.png');
+  iup:=LoadImage('/up.PNG');
+  iminiwmp:=LoadImage('/wmplayer-mini.png');
+  iminicp:=LoadImage('/cpanel-mini.png');
+  iminicpmouse:=LoadImage('/mouse-mini.png');
+  iminimycomputer:=LoadImage('/mycomp-mini.png');
+  iexplorer:=LoadImage('/iexplorer.png');
+  itetris:=LoadImage('/tetris.png');
+  ilistup:=LoadImage('/listup.png');
+  ilistdown:=LoadImage('/listdown.png');
+  ilistpos:=LoadImage('/listpos.png');
+  iminiviewer:=LoadImage('/icon-pict.png');
+  imbtitle:=LoadImage('/mboxtitle.png');
+  imusicicon:=LoadImage('/musicicon.png');
+  iimageicon:=LoadImage('/imageicon.png');
+  itexticon:=LoadImage('/txtico.png');
+  ipicdir:=LoadImage('/picdir.png');
+  itester:=LoadImage('/itest.png');
+  ioff:=LoadImage('/off.png');
+  icancel:=LoadImage('/cancel.png');
+  iwait:=LoadImage('/cdisk.png');
+  iwait2:=rotate_image_from_image(iwait, 0,0,GetImageWidth(iwait),GetImageheight(iwait), 5);
+  iwait3:=rotate_image_from_image(iwait2, 0,0,GetImageWidth(iwait2),GetImageheight(iwait2), 5);
+  iwait4:=rotate_image_from_image(iwait3, 0,0,GetImageWidth(iwait3),GetImageheight(iwait3), 5);
+  ibar:=LoadImage('/zza.png');
+  ibar2:=LoadImage('/zza2.png');
+  iupdate:=LoadImage('/updisk.png');
+  inewfolder:=LoadImage('/newdir.png');
+  {Инициализация}
+  CursorSpeed:=2;
+  MustExit:=false;
+  ActiveWindow:=ID_desktop;
+  setFont(FONT_FACE_MONOSPACE, FONT_STYLE_PLAIN, FONT_SIZE_small); 
+  CursorX:=GetWidth/2;
+  CursorY:=GetHeight/2;
+  StartPosition:=1;
+  ListSize:=(GetHeight-34)/15-2;
+  DelayAfterDraw:=false;
+  screenshots_path:='c:/other/wm_screen.png';
+  mc_path:='/';
+  sys_colors:=GetColorsNum;
+  ShortCutPath:='';
+  ShortCutName:='';
+  {Появление рабочего стола}
+  iscreen:=ImageFromCanvas(0,0,GetWidth,GetHeight);
+  for Cnt:=31 downto 0 do begin
+                            SetColor(0,0,0);
+                            fillRect(0,0,GetWidth,GetHeight);
+                            DrawImage(SetOpaque(iscreen, Cnt*8), 0, 0);
+                            Repaint;
+                            end;
+  Desktop;
+  DrawImage(idown,0,GetHeight-16);
+  if DrawGraphicButton(ipuskbutton,ipuskbutton,0,GetHeight-16, 55, 16) then begin TurnStart(true); DelayAfterDraw:=true; end;
+  iscreen:=ImageFromCanvas(0,0,GetWidth,GetHeight);
+  
+  for Cnt:=0 to 31 do  begin
+                        SetColor(0,0,0);
+                        fillRect(0,0,GetWidth,GetHeight);
+                        DrawImage(SetOpaque(iscreen, Cnt*8), 0, 0);
+                        Repaint;
+                        end;
+  iscreen:=nil;
+  memclean.clean;
+  {Звуковой эффект}
+  // теперь его нет :D
+  {Основной блок}  
+  while True do begin
+  keycode:=GetKeyPressed;
+  
+  if KeyToAction(keycode)=GA_UP then UpperMessageIsActive:=false;
+  if KeyToAction(keycode)=GA_DOWN then UpperMessageIsActive:=false;
+  if KeyToAction(keycode)=GA_LEFT then UpperMessageIsActive:=false;
+  if KeyToAction(keycode)=GA_RIGHT then UpperMessageIsActive:=false;
+  
+  if KeyToAction(keycode)=GA_UP then cursorY:=cursorY-CursorSpeed;
+  if KeyToAction(keycode)=GA_DOWN then cursorY:=cursorY+CursorSpeed;
+  if KeyToAction(keycode)=GA_LEFT then cursorx:=cursorX-CursorSpeed;
+  if KeyToAction(keycode)=GA_RIGHT then cursorx:=cursorX+CursorSpeed;
+     
+  if keycode=-11 then ActiveWindow:=ID_Desktop;
+  {Выход курсора за пределы экрана}
+  if CursorX>GetWidth-1 then CursorX:=GetWidth-1;
+  if CursorY>GetHeight-2 then CursorY:=GetHeight-2;
+  if CursorX<0 then CursorX:=0;
+  if CursorY<0 then CursorY:=0;
+  
+  if ActiveWindow=ID_desktop then Desktop;
+  if ActiveWindow=ID_wmp then windowsmediaplayer;
+  if ActiveWindow=ID_cpanel then ControlPanel;
+  if ActiveWindow=ID_cp_mouse then CPmouse;
+  if ActiveWindow=ID_mycomputer then MyComputer;
+  if ActiveWindow=ID_viewer then Viewer;
+  if ActiveWindow=ID_cp_sysinfo then CPsysinfo;
+  
+  if PopupIsActive then Popup;
+  if StartIsActive then ShowStart;
+  
+  DrawImage(idown,0,GetHeight-16);
+  if DrawGraphicButton(ipuskbutton,ipuskbutton,0,GetHeight-16, 55, 16) then begin TurnStart(true); DelayAfterDraw:=true; end;
+  if keycode=-6 then begin TurnStart(true); DelayAfterDraw:=true; end;
+  
+  if MyComputerIsActive then if DrawGraphicButton(iminimycomputer,iminimycomputer, 60, GetHeight-16, 15, 16) then SwitchWindow(ID_mycomputer);
+  if cpIsActive then if DrawGraphicButton(iminicp,iminicp, 76, GetHeight-16, 16, 16) then SwitchWindow(ID_cpanel);
+  if cpMouseIsActive then if DrawGraphicButton(iminicpmouse,iminicpmouse, 76, GetHeight-16, 16, 16) then SwitchWindow(ID_cp_mouse);
+  if wmpIsActive then if DrawGraphicButton(iminiwmp,iminiwmp, 92, GetHeight-16, 16, 16) then SwitchWindow(ID_wmp);
+  if viewerIsActive then if DrawGraphicButton(iminiviewer,iminiviewer, 108, GetHeight-16, 16, 16) then SwitchWindow(ID_viewer);
+  if cpsysinfoIsActive then if DrawGraphicButton(iminimycomputer,iminimycomputer, 76, GetHeight-16, 16, 16) then SwitchWindow(ID_cp_sysinfo);
+  
+  if UpperMessageIsActive then begin
+                                SetColor(255,255,255);
+                                fillRect(GetWidth/2-GetStringWidth(UpperMessage)/2-2, GetHeight/2-22, GetStringWidth(UpperMessage)+4, 44);
+                                drawRect(GetWidth/2-GetStringWidth(UpperMessage)/2-4, GetHeight/2-24, GetStringWidth(UpperMessage)+7, 47);
+                                Setcolor(0,0,0);
+                                DrawImage(UpperMessageIcon,GetWidth/2-GetImageWidth(UpperMessageIcon)/2, GetHeight/2-20);
+                                drawText(UpperMessage, GetWidth/2-GetStringWidth(UpperMessage)/2, GetHeight/2+10-GetStringHeight(UpperMessage)/2);
+                                end;
+  
+  DrawImage(ikursor, cursorx, cursory);
+  if (keycode=-26)or(keycode=KE_KEY1) then begin
+                                            iscreen:=ImageFromCanvas(0,0,GetWidth,GetHeight);
+                                            CapturedScreen;
+                                            {Jpeg.saveimagetofile(iscreen, 100, screenshots_path);}
+                                            if save_png(iscreen, screenshots_path)=1 then gg1:=true;
+                                            repeat until (GetKeyPressed<>-26)and(GetKeyPressed<>KE_KEY1);
+                                            end;
+  if DelayAfterDraw=true then repeat until (KeyToAction(GetKeyPressed)<>GA_FIRE);
+  DelayAfterDraw:=false;
+  Repaint;
+  if MustExit then WExit;
+  if Keycode=KE_KEY0 then WExit;
+  end;
+end.
+
+ 

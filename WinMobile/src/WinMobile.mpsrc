@@ -1,0 +1,1390 @@
+program WinMobile;
+uses jsr75i, m2, mmapi, videocnv, imloadjsr75, anigif3, jpeg, bmp, png3, canvas, memory, memclean, alpha, font32, thread10, rc, res, str, parse, jsr75ex, timer;
+
+// План: ////////////////////////
+//
+//
+//
+//
+/////////////////////////////////
+
+type
+
+window=record
+       Title:string;
+       IsActive:boolean;
+       IsShown:boolean;
+       IsUpper:boolean;
+       IsMinimizable:boolean;
+       IsMaximizable:boolean;
+       x,y,width,height:integer;
+       end;
+
+shortcut=record
+         Title:string;
+         x,y:integer;
+         Icon:image;
+         Usage:integer;
+         end;
+
+const
+
+//CursorSpeed=9;
+
+ID_MyComputer=1;
+ID_WMP=2;
+ID_IE=3;
+ID_imaging=4;
+ID_cp=5;
+
+COMPACT=0;
+EXTENDED=1;
+
+var
+
+keycode:integer;
+CursorX,CursorY:integer;
+DelayAfterDraw:boolean;
+MustExit:boolean;
+
+CursorSpeed:integer;
+
+fps, wfps, wtime:integer;
+
+gg1:boolean;
+
+ii:integer;
+
+res:resource;
+
+GetTimeString, GetTimeFullString, GetDateString:string;
+
+windows:array[1..100] of window;
+windows_order:array[1..100] of integer;
+shortcuts:array[1..25] of shortcut;
+
+textfields:array[1..20] of string;
+
+DragResize:boolean;
+DragResizeWindow:integer;
+DragMove:boolean;
+DragMoveWindow:integer;
+
+taskbar_view:integer;
+
+mc_path, mc_path2, mc_data, mc_fdata:string; // для работы с
+mc_array: array[1..999] of string;          // файловой системой
+StartPosition,itemscount,listsize:integer;   // телефона
+
+ikursor:image;
+ifon:image;
+idown,istart,isplitter:image;
+
+iscreen:image;
+screenshots_path:string;
+
+iwindown,iwinleft,iwinright,iwinleftdown,iwinrightdown,iwinleftup,iwinrightup,iwinup:image;
+iwinx,iwinminimize,iwinresize:image;
+iwinx_hover,iwinminimize_hover,iwinresize_hover:image;
+
+iup,iupdate,inewfolder:image;
+ifileicon,idiricon,imusicicon,iimageicon,itexticon,idiskicon:image;
+iscrollup,iscrolldown,iscrollpos:image;
+
+play_button,play_down,play_hover,player_dn:image;
+pause_button,pause_down,pause_hover:image;
+
+arrow,arrow_l,arrow_d:image;
+
+iminicomp,iminiwmp,iminiie,iminiimaging,iminicp:image;
+
+media:integer;
+wmpFileName:string;
+wmpPosition,wmpDuration:integer;
+visual:array[1..10] of integer;
+visual2:array[1..10] of integer;
+wmpl:integer;
+
+viewer_k:string;
+viewer_image:image;
+ImagingMenu:boolean;
+ImagingSubMenu:boolean;
+ImagingSubMenuNumber:integer;
+viewerFileName:string;
+GifIsLoaded:boolean;
+
+conn : http; 
+htmlBody : string; 
+prevX,prevY,prevW,prevH:integer;
+
+cp_tab:integer;
+display_colors:integer;
+
+////////////////////////////////////////////////////
+////////////////////////////////////////////////////
+//      WinMobile v.1.0. Created by m1kc     ///////
+////////////////////////////////////////////////////
+////////////////////////////////////////////////////
+
+procedure SetUpper(targetWindow:integer); forward;
+function DrawGraphicButton(img, img_hover, img_pressed:image; x,y, parentWindow:integer):boolean; forward;
+procedure SetNextUpper(target:integer); forward;
+procedure ShowHint(hint:string); forward;
+procedure SetHint(hint:string;x,y,width,height,parentWindow:integer); forward;
+
+procedure ProcessTag_SC;
+begin
+ii:=ii+1;
+shortcuts[ii].title:=read(res,1,1);
+shortcuts[ii].x:=StringToInteger(read(res,1,1));
+shortcuts[ii].y:=StringToInteger(read(res,1,1));
+shortcuts[ii].Icon:=LoadImage('/'+read(res,1,1));
+shortcuts[ii].usage:=StringToInteger(read(res,1,1));
+if Read(res,1,1)='</SC>' then gg1:=true;
+end;
+
+procedure ProcessTag_COMMENT;
+var gggg:string;
+begin
+repeat gggg:=read(res,1,1);
+until gggg='</COMMENT>';
+end;
+
+procedure LoadSources;
+var st:string;
+    state:integer;
+begin
+
+//Загрузка ресурсов
+
+//ikursor:=LoadImage('/cursorzz.png');
+ikursor:=LoadImage('/wwwcurs3.png');
+ifon:=LoadImage('/55zzz.png');
+ifon:=resize_image(ifon, GetWidth, GetHeight);
+idown:=LoadImage('/downbar.png');
+idown:=resize_image(idown, GetWidth, 16);
+istart:=LoadImage('/puskvista.png');
+isplitter:=LoadImage('/pusksplitter.png');
+iwindown:=LoadImage('/vistawin_down.png');
+iwinleft:=LoadImage('/vistawin_left.png');
+iwinright:=LoadImage('/vistawin_right.png');
+iwinleftdown:=LoadImage('/vistawin_leftdown.png');
+iwinrightdown:=LoadImage('/vistawin_rightdown.png');
+iwinleftup:=LoadImage('/vistawin_leftup.png');
+iwinrightup:=LoadImage('/vistawin_rightup.png');
+iwinup:=LoadImage('/vistawin_up.png');
+iwinx:=LoadImage('/closeX.png');
+iwinminimize:=LoadImage('/Minimize.png');
+iwinresize:=LoadImage('/Maximize.png');
+iwinx_hover:=LoadImage('/closeX_hover.png');
+iwinminimize_hover:=LoadImage('/Minimize_hover.png');
+iwinresize_hover:=LoadImage('/Maximize_hover.png');
+iup:=LoadImage('/up.PNG');
+iupdate:=LoadImage('/updisk.png');
+inewfolder:=LoadImage('/newdir.png');
+ifileicon:=LoadImage('/motorf.png');
+idiricon:=LoadImage('/diricon.png');
+imusicicon:=LoadImage('/musicicon.png');
+iimageicon:=LoadImage('/icon-pict.png');
+itexticon:=LoadImage('/txtico.png');
+play_button:=LoadImage('/play-button.png');
+play_down:=LoadImage('/play-down.png');
+play_hover:=LoadImage('/play-hover.png');
+player_dn:=LoadImage('/player-dn.png');
+arrow:=LoadImage('/arrow.png');
+arrow_l:=LoadImage('/arrowl.png');
+arrow_d:=LoadImage('/arrowd.png');
+iscrollup:=LoadImage('/listup.png');
+iscrolldown:=LoadImage('/listdown.png');
+iscrollpos:=LoadImage('/listpos.png');
+idiskicon:=LoadImage('/disko.png');
+pause_button:=LoadImage('/pause.png');
+pause_down:=LoadImage('/pause-down.png');
+pause_hover:=LoadImage('/pause-hover.png');
+
+// Загрузка ярлыков
+
+res:=OpenResource('/sc.dat'); 
+ii:=0;
+
+state:=1;
+
+repeat
+
+st:=read(res,1,1);
+
+if st='<SC>' then ProcessTag_SC;
+if st='<COMMENT>' then ProcessTag_COMMENT;
+if st='<END>' then state:=0;
+
+until state=0;
+
+CloseResource(res);
+
+iminicomp:=LoadImage('/mycomp.png');
+iminicomp:=resize_image(iminicomp,14,16);
+iminiwmp:=LoadImage('/wmplayer.png');
+iminiwmp:=resize_image(iminiwmp,16,16);
+iminiie:=LoadImage('/iexplorer.png');
+iminiie:=resize_image(iminiie,16,16);
+iminiimaging:=LoadImage('/pictss.png');
+iminiimaging:=resize_image(iminiimaging,16,16);
+iminicp:=LoadImage('/cpanel2.png');
+iminicp:=resize_image(iminicp,16,16);
+
+//Инициализация
+
+font32.init(2);
+font32.font(0);
+font32.loadFont('Verdana_7');
+font32.font(1);
+font32.loadFont('Verdana_7g');
+CursorX:=GetWidth/2;
+CursorY:=GetHeight/2;
+
+windows[1].title:='Мой компьютер';
+windows[1].isactive:=false;
+windows[1].isshown:=false;
+windows[1].isupper:=false;
+windows[1].x:=20;
+windows[1].y:=20;
+windows[1].width:=120;
+windows[1].height:=100;
+windows[1].IsMinimizable:=true;
+windows[1].IsMaximizable:=true;
+
+windows[2].title:='Windows Media';
+windows[2].isactive:=false;
+windows[2].isshown:=false;
+windows[2].isupper:=false;
+windows[2].x:=40;
+windows[2].y:=40;
+windows[2].width:=120;
+windows[2].height:=100;
+windows[2].IsMinimizable:=true;
+windows[2].IsMaximizable:=true;
+
+windows[3].title:='Internet Explorer';
+windows[3].isactive:=false;
+windows[3].isshown:=false;
+windows[3].isupper:=false;
+windows[3].x:=60;
+windows[3].y:=60;
+windows[3].width:=100;
+windows[3].height:=80;
+windows[3].IsMinimizable:=true;
+windows[3].IsMaximizable:=true;
+
+windows[4].title:='Imaging';
+windows[4].isactive:=false;
+windows[4].isshown:=false;
+windows[4].isupper:=false;
+windows[4].x:=80;
+windows[4].y:=80;
+windows[4].width:=100;
+windows[4].height:=80;
+windows[4].IsMinimizable:=false;
+windows[4].IsMaximizable:=false;
+
+windows[5].title:='Панель управления';
+windows[5].isactive:=false;
+windows[5].isshown:=false;
+windows[5].isupper:=false;
+windows[5].x:=50;
+windows[5].y:=50;
+windows[5].width:=128;
+windows[5].height:=144;
+windows[5].IsMinimizable:=false;
+windows[5].IsMaximizable:=true;
+
+for II:=1 to 100 do windows_order[ii]:=ii;
+
+SetUpper(1);
+SetUpper(2);
+SetUpper(3);
+SetUpper(4);
+SetUpper(5);
+
+DragResize:=false;
+DragMove:=false;
+
+mc_path:='/';
+listsize:=1;
+startposition:=1;
+
+setFont(FONT_FACE_MONOSPACE, FONT_STYLE_PLAIN, FONT_SIZE_small); 
+
+CursorSpeed:=4;
+wtime:=GetCurrentTime;
+fps:=50;
+
+cp_tab:=1;
+display_colors:=GetColorsNum;
+
+screenshots_path:='c:/other/wm_screen.png';
+
+taskbar_view:=COMPACT;
+//taskbar_view:=EXTENDED;
+
+GifIsLoaded:=false;
+
+wmpl:=1;
+end;
+
+procedure WExit;
+begin
+memclean.clean;
+halt;
+end;
+
+procedure SwitchWindow(w:integer);
+begin
+if windows[w].isShown then begin
+                            if windows[w].isUpper then begin
+                                                        windows[w].isShown:=false;
+                                                        SetNextUpper(w);
+                                                        end;
+                                                   else SetUpper(w);
+                            end;
+                      else begin
+                            windows[w].isShown:=true;
+                            SetUpper(w);
+                            end;
+//windows[w].isShown:=not windows[w].isShown;
+end;
+
+procedure TaskBar;
+var px:integer;
+begin
+
+Font(0);
+
+//без подписей
+if taskbar_view=COMPACT then begin
+
+px:=31;
+
+if windows[id_MyComputer].isActive then begin
+                                         if DrawGraphicButton(iminicomp,iminicomp,iminicomp,px,GetHeight-16,windows_order[100]) then SwitchWindow(id_mycomputer);
+                                         px:=px+16;
+                                         end;
+
+if windows[id_wmp].isActive then begin
+                                  if DrawGraphicButton(iminiwmp,iminiwmp,iminiwmp,px,GetHeight-16,windows_order[100]) then SwitchWindow(id_wmp);
+                                  px:=px+16;
+                                  end;
+
+if windows[id_ie].isActive then begin
+                                 if DrawGraphicButton(iminiie,iminiie,iminiie,px,GetHeight-16,windows_order[100]) then SwitchWindow(id_ie);
+                                 px:=px+16;
+                                 end;
+                                 
+if windows[id_imaging].isActive then begin
+                                      if DrawGraphicButton(iminiimaging,iminiimaging,iminiimaging,px,GetHeight-16,windows_order[100]) then SwitchWindow(id_imaging);
+                                      px:=px+16;
+                                      end;
+                                      
+if windows[id_cp].isActive then begin
+                                 if DrawGraphicButton(iminicp,iminicp,iminicp,px,GetHeight-16,windows_order[100]) then SwitchWindow(id_cp);
+                                 px:=px+16;
+                                 end;
+end;
+
+//С подписями
+
+if taskbar_view=EXTENDED then begin
+
+px:=31;
+
+
+if windows[id_MyComputer].isActive then begin
+                                         SetColor(255,255,255);
+                                         if windows[id_MyComputer].isUpper then fillRoundRect(px,GetHeight-16,16+TextWidth(windows[id_mycomputer].title), 16, 4, 4); 
+                                         SetColor(0,0,0);
+                                         if windows[id_MyComputer].isUpper then DrawString(windows[id_mycomputer].title,px+16,GetHeight-8-TextHeight/2);
+                                         
+                                         if DrawGraphicButton(iminicomp,iminicomp,iminicomp,px,GetHeight-16,windows_order[100]) then SwitchWindow(id_mycomputer);
+                                         
+                                         px:=px+16;
+                                         if windows[id_MyComputer].isUpper then px:=px+TextWidth(windows[id_mycomputer].title);
+                                         end;
+
+if windows[id_wmp].isActive then begin
+                                  SetColor(255,255,255);
+                                  if windows[id_wmp].isUpper then fillRoundRect(px,GetHeight-16,16+TextWidth(windows[id_wmp].title), 16, 4, 4); 
+                                  SetColor(0,0,0);
+                                  if windows[id_wmp].isUpper then DrawString(windows[id_wmp].title,px+16,GetHeight-8-TextHeight/2);
+                                         
+                                  if DrawGraphicButton(iminiwmp,iminiwmp,iminiwmp,px,GetHeight-16,windows_order[100]) then SwitchWindow(id_wmp);
+                                  
+                                  px:=px+16;
+                                  if windows[id_wMp].isUpper then px:=px+TextWidth(windows[id_wmp].title);
+                                  end;
+
+if windows[id_ie].isActive then begin
+                                 SetColor(255,255,255);
+                                 if windows[id_ie].isUpper then fillRoundRect(px,GetHeight-16,16+TextWidth(windows[id_ie].title), 16, 4, 4); 
+                                 SetColor(0,0,0);
+                                 if windows[id_ie].isUpper then DrawString(windows[id_ie].title,px+16,GetHeight-8-TextHeight/2);
+
+                                 if DrawGraphicButton(iminiie,iminiie,iminiie,px,GetHeight-16,windows_order[100]) then SwitchWindow(id_ie);
+                                 
+                                 px:=px+16;
+                                 if windows[id_ie].isUpper then px:=px+TextWidth(windows[id_ie].title);
+                                 end;
+         
+if windows[id_imaging].isActive then begin
+                                      SetColor(255,255,255);
+                                      if windows[id_imaging].isUpper then fillRoundRect(px,GetHeight-16,16+TextWidth(windows[id_imaging].title), 16, 4, 4); 
+                                      SetColor(0,0,0);
+                                      if windows[id_imaging].isUpper then DrawString(windows[id_imaging].title,px+16,GetHeight-8-TextHeight/2);
+
+                                      if DrawGraphicButton(iminiimaging,iminiimaging,iminiimaging,px,GetHeight-16,windows_order[100]) then SwitchWindow(id_imaging);
+                                 
+                                      px:=px+16;
+                                      if windows[id_imaging].isUpper then px:=px+TextWidth(windows[id_imaging].title);
+                                      end;
+                                      
+if windows[id_cp].isActive then begin
+                                 SetColor(255,255,255);
+                                 if windows[id_cp].isUpper then fillRoundRect(px,GetHeight-16,16+TextWidth(windows[id_cp].title), 16, 4, 4); 
+                                 SetColor(0,0,0);
+                                 if windows[id_cp].isUpper then DrawString(windows[id_cp].title,px+16,GetHeight-8-TextHeight/2);
+
+                                 if DrawGraphicButton(iminicp,iminicp,iminicp,px,GetHeight-16,windows_order[100]) then SwitchWindow(id_cp);
+                                 
+                                 px:=px+16;
+                                 if windows[id_cp].isUpper then px:=px+TextWidth(windows[id_cp].title);
+                                 end;
+                        
+end;
+
+
+
+
+end;
+
+procedure UseShortcut(sc:integer);
+begin
+if sc=1 then begin 
+              windows[Id_mycomputer].isactive:=true;
+              windows[Id_mycomputer].isShown:=true;
+              setUpper(Id_mycomputer);
+              end;
+if sc=2 then begin 
+              windows[Id_wmp].isactive:=true;
+              windows[Id_wmp].isShown:=true;
+              setUpper(Id_wmp);
+              end;
+if sc=3 then begin 
+              windows[Id_ie].isactive:=true;
+              windows[Id_ie].isShown:=true;
+              setUpper(Id_ie);
+              end;
+if sc=4 then begin 
+              windows[Id_imaging].isactive:=true;
+              windows[Id_imaging].isShown:=true;
+              setUpper(Id_imaging);
+              end;
+if sc=5 then begin 
+              windows[Id_cp].isactive:=true;
+              windows[Id_cp].isShown:=true;
+              setUpper(Id_cp);
+              end;
+
+end;
+
+procedure onClose(targetWindow:integer);
+begin
+if targetWindow=id_mycomputer then begin
+                                    mc_path:='/';
+                                    mc_path2:='';
+                                    end;
+if targetWindow=id_wmp then begin
+                             media:=pause;
+                             end;
+end;
+
+procedure UpdateTime;
+var time:integer;
+    hs,ms,ss:string;
+    mt:string;
+begin
+time:=GetCurrentTime; 
+if GetHour(time)<10 then hs:='0'+IntegerToString(GetHour(time)) else hs:=IntegerToString(GetHour(time));
+if GetMinute(time)<10 then ms:='0'+IntegerToString(GetMinute(time)) else ms:=IntegerToString(GetMinute(time));
+if GetSecond(time)<10 then ss:='0'+IntegerToString(GetSecond(time)) else ss:=IntegerToString(GetSecond(time));
+GetTimeString:=hs+':'+ms;
+GetTimeFullString:=hs+':'+ms+':'+ss;
+
+if GetMonth(time)=0 then mt:=' января ';
+if GetMonth(time)=1 then mt:=' февраля ';
+if GetMonth(time)=2 then mt:=' марта ';
+if GetMonth(time)=3 then mt:=' апреля ';
+if GetMonth(time)=4 then mt:=' мая ';
+if GetMonth(time)=5 then mt:=' июня ';
+if GetMonth(time)=6 then mt:=' июля ';
+if GetMonth(time)=7 then mt:=' августа ';
+if GetMonth(time)=8 then mt:=' сентября ';
+if GetMonth(time)=9 then mt:=' октября ';
+if GetMonth(time)=10 then mt:=' ноября ';
+if GetMonth(time)=11 then mt:=' декабря ';
+
+GetDateString:=IntegerToString(GetDay(time))+mt+IntegerToString(GetYear(time));
+end;
+
+function WindowX(target:integer):integer;
+begin
+WindowX:=windows[target].x+12;
+end;
+function WindowY(target:integer):integer;
+begin
+WindowY:=windows[target].y+12;
+end;
+function WindowWidth(target:integer):integer;
+begin
+WindowWidth:=windows[target].width-24;
+end;
+function WindowHeight(target:integer):integer;
+begin
+WindowHeight:=windows[target].height-24;
+end;
+
+procedure CheckDrag;
+begin
+if DragResize then begin
+                    windows[DragResizeWindow].width:=CursorX-windows[DragResizeWindow].x+6;
+                    windows[DragResizeWindow].height:=CursorY-windows[DragResizeWindow].y+6;
+                    if windows[DragResizeWindow].height<55 then begin
+                                                                 windows[DragResizeWindow].height:=55;
+                                                                 CursorY:=windows[DragResizeWindow].y+windows[DragResizeWindow].height-6;
+                                                                 end;
+                    if windows[DragResizeWindow].width<70 then begin
+                                                                windows[DragResizeWindow].width:=70;
+                                                                CursorX:=windows[DragResizeWindow].x+windows[DragResizeWindow].width-6;
+                                                                end;
+                    end;
+if DragMove then begin
+                  windows[DragMoveWindow].x:=CursorX-6;
+                  windows[DragMoveWindow].y:=CursorY-6;
+                  end;
+end;
+
+procedure SetUpper(targetWindow:integer);
+var i,j:integer;
+begin
+for i:=1 to 100 do windows[i].isUpper:=false;
+windows[targetWindow].isUpper:=true;
+i:=0;
+repeat 
+i:=I+1;
+until windows_order[i]=targetWindow;
+if windows_order[100]<>targetWindow then for j:=i+1 to 100 do if j<>1 then windows_order[j-1]:=windows_order[j];
+windows_order[100]:=targetWindow;
+end;
+
+procedure SetNextUpper(target:integer);
+var i,j:integer;
+begin
+i:=target;
+if i<>1 then begin
+repeat i:=i-1;
+until (windows[windows_order[i]].isShown)or(i=1);
+SetUpper(i);
+              end;
+end;
+
+function PointIsClear:boolean;
+var I:integer;
+begin
+PointIsClear:=true;
+for I:=1 to 100 do if (windows[i].isShown)and(CursorX>windows[i].x)and(CursorY>windows[i].y)and(CursorX<windows[i].x+windows[i].width)and(CursorY<windows[i].y+windows[i].height) then PointIsClear:=false;
+end;
+
+procedure ShowHint(hint:string);
+var px,py:integer;
+begin
+px:=cursorx+10;
+py:=cursory+15;
+if GetStringWidth(hint)+4+px>GetWidth then px:=GetWidth-GetStringWidth(hint)-4;
+if GetStringHeight(hint)+4+py>GetHeight-16 then py:=GetHeight-GetStringHeight(hint)-4-16;
+setcolor(244,242,242);
+fillRect(px,py,GetStringWidth(hint)+4,GetStringHeight(hint)+4);
+setcolor(111,111,111);
+drawrect(px,py,GetStringWidth(hint)+4,GetStringHeight(hint)+4);
+setcolor(0,0,0);
+drawText(hint,px+2,py+2);
+end;
+
+procedure SetHint(hint:string;x,y,width,height,parentWindow:integer);
+begin
+if (CursorX>x)and(CursorX<x+width)and(CursorY>y)and(CursorY<Y+height)and(windows[parentWindow].IsUpper) then ShowHint(hint);
+end;
+
+function DrawGraphicButton(img, img_hover, img_pressed:image; x,y, parentWindow:integer):boolean;
+begin
+
+if (KeyToAction(keycode)=GA_FIRE)and((windows[parentWindow].isUpper)or(parentWindow=0))and(cursorX>x)and(CursorY>y)and(cursorX<x+GetImageWidth(img_pressed))and(cursory<y+GetImageHeight(img_pressed)) then DrawImage(img_pressed,x,y)
+else if (cursorX>x)and(CursorY>y)and(cursorX<x+GetImageWidth(img_hover))and(cursory<y+GetImageHeight(img_hover)) then DrawImage(img_hover,x,y)
+else DrawImage(img,x,y);
+
+if (KeyToAction(keycode)=GA_FIRE)and((windows[parentWindow].isUpper)or(parentWindow=0))and(cursorX>x)and(CursorY>y)and(cursorX<x+GetImageWidth(img_pressed))and(cursory<y+GetImageHeight(img_pressed)) then DrawGraphicButton:=true
+else if (cursorX>x)and(CursorY>y)and(cursorX<x+GetImageWidth(img_hover))and(cursory<y+GetImageHeight(img_hover)) then DrawGraphicButton:=false
+else DrawGraphicButton:=false;
+
+end;
+
+function DrawTab(title:string; x,y,width,height:integer; state:boolean; parentWindow:integer):boolean;
+begin
+if state=true then begin
+                    SetColor(0,128,255);
+                    fillRect(x,y,width,height);
+                    SetColor(255,255,255);
+                    DrawText(title,x+2,y+height/2-GetStringHeight(title)/2);
+                    end;
+              else begin
+                    SetColor(0,0,0);
+                    DrawText(title,x+2,y+height/2-GetStringHeight(title)/2);
+                    end;
+if (windows[parentWindow].isUpper)and(CursorX>x)and(cursorY>y)and(CursorX<x+width)and(CursorY<y+height)and(keytoaction(keycode)=GA_FIRE) then DrawTab:=true else DrawTab:=false;
+end;
+
+function DrawItem(title:string; x,y,width,height:integer; arrow:boolean; parentWindow:integer):integer;
+begin
+SetColor(236,233,216);
+fillRect(x,y,width,height);
+SetColor(0,0,0);
+DrawText(title, x+2, y+height/2-GetStringHeight(title)/2);
+if arrow then DrawText('>', x+width-GetStringWidth('>'), y+height/2-GetStringHeight('>')/2);
+if arrow then DrawText('>', x+width-GetStringWidth('>')-1, y+height/2-GetStringHeight('>')/2);
+
+if (CursorX>x)and(CursorY>y)and(CursorX<x+width)and(CursorY<y+height) then begin
+                                                                             SetColor(0,128,255);
+                                                                             fillRect(x,y,width,height);
+                                                                             SetColor(255,255,255);
+                                                                             DrawText(title, x+2, y+height/2-GetStringHeight(title)/2);
+                                                                             if arrow then DrawText('>', x+width-GetStringWidth('>'), y+height/2-GetStringHeight('>')/2);
+                                                                             if arrow then DrawText('>', x+width-GetStringWidth('>')-1, y+height/2-GetStringHeight('>')/2);
+                                                                             DrawItem:=1;
+                                                                             end;
+                                                                             
+if (CursorX>x)and(CursorY>y)and(CursorX<x+width)and(CursorY<y+height)and(windows[parentWindow].isUpper)and(keytoaction(keycode)=GA_FIRE) then DrawItem:=2;
+
+end;
+
+function DrawButton(title:string;x,y,width,height,parentWindow:integer):boolean;
+begin
+if (windows[parentWindow].isUpper)and(CursorX>X)and(CursorX<X+width)and(CursorY>Y)and(CursorY<Y+height)and(keytoaction(keycode)=GA_FIRE) then begin
+                                                                                                                                                 SetColor(192,192,192);
+                                                                                                                                                 fillRect(x+1,y+1,width,height);
+                                                                                                                                                 SetColor(0,0,0);
+                                                                                                                                                 DrawText(title, x+width/2-GetStringWidth(title)/2+1, y+(height/2)-GetStringHeight(title)/2+1);
+                                                                                                                                                 DrawButton:=true;
+                                                                                                                                                 end;
+                                                                                                                                            else begin
+                                                                                                                                                  SetColor(192,192,192);
+                                                                                                                                                  fillRect(x,y,width,height);
+                                                                                                                                                  SetColor(128,128,128);
+                                                                                                                                                  DrawLine(x+1,y+height,x+width,y+height);
+                                                                                                                                                  DrawLine(x+width,y+1,x+width,y+height);
+                                                                                                                                                  SetColor(0,0,0);
+                                                                                                                                                  DrawText(title, x+width/2-GetStringWidth(title)/2, y+(height/2)-GetStringHeight(title)/2);
+                                                                                                                                                  DrawButton:=false;
+                                                                                                                                                  end;
+end;
+
+function DrawHiddenButton(title:string;x,y,width,height,parentWindow:integer):integer;
+begin
+if (windows[parentWindow].isUpper)and(CursorX>X)and(CursorX<X+width)and(CursorY>Y)and(CursorY<Y+height) then begin
+													          																												                    SetColor(0,128,255);
+                                                                                                                fillRect(0,y,GetWidth-16,15);
+                                                                                                                SetColor(255,255,255);
+                                                                                                                DrawText(title, x, y+(height/2)-GetStringHeight(title)/2);
+                                                                                                                end;
+                                                                                                          else begin
+                                                                                                               SetColor(0,0,0);
+                                                                                                               DrawText(title, x, y+(height/2)-GetStringHeight(title)/2);
+                                                                                                               end;
+
+if (windows[parentWindow].isUpper)and(CursorX>X)and(CursorX<X+width)and(CursorY>Y)and(CursorY<Y+height)and(keytoaction(keycode)=GA_FIRE) then DrawHiddenButton:=1 else DrawHiddenButton:=0;
+end;
+
+procedure DrawIcon(i,x,y:integer);
+begin
+if endwith(locase(mc_array[I]), ':/')=1 then DrawImage(idiskicon,x,y)
+else if endwith(locase(mc_array[I]), '/')=1 then DrawImage(idiricon,x,y)
+else if endwith(locase(mc_array[I]), '.mp3')=1 then DrawImage(imusicicon,x,y)
+else if endwith(locase(mc_array[I]), '.mid')=1 then DrawImage(imusicicon,x,y)
+else if endwith(locase(mc_array[I]), '.midi')=1 then DrawImage(imusicicon,x,y)
+else if endwith(locase(mc_array[I]), '.amr')=1 then DrawImage(imusicicon,x,y)
+else if endwith(locase(mc_array[I]), '.wav')=1 then DrawImage(imusicicon,x,y)
+else if endwith(locase(mc_array[I]), '.wave')=1 then DrawImage(imusicicon,x,y)
+else if endwith(locase(mc_array[I]), '.png')=1 then DrawImage(iimageicon,x,y)
+else if endwith(locase(mc_array[I]), '.jpg')=1 then DrawImage(iimageicon,x,y)
+else if endwith(locase(mc_array[I]), '.jpeg')=1 then DrawImage(iimageicon,x,y)
+else if endwith(locase(mc_array[I]), '.gif')=1 then DrawImage(iimageicon,x,y)
+else if endwith(locase(mc_array[I]), '.bmp')=1 then DrawImage(iimageicon,x,y)
+else if endwith(locase(mc_array[I]), '.txt')=1 then DrawImage(itexticon,x,y)
+else DrawImage(ifileicon,x,y)
+end;
+
+procedure WFileOpen(fpath:string; fname:string);
+var k:integer;
+    tmp_image:image;
+begin
+
+if endwith(locase(fname), '.mp3')=1 then begin
+                                          SetUpper(id_wmp);
+        																	Windows[id_wmp].isActive:=true;
+				        													Windows[id_wmp].isShown:=true;
+								        									media:=pause;
+												        					wmpFileName:=fname;
+																        	media:=loadfilefs('/'+fpath+fname, mmapi.mp3file, 100);
+        																	media:=play;
+				        													//wmpDuration:=getDuration;
+								        									//wmpPosition:=0;
+                                          end;
+                                          
+if endwith(locase(fname), '.mid')=1 then begin
+                                          SetUpper(id_wmp);
+        																	Windows[id_wmp].isActive:=true;
+				        													Windows[id_wmp].isShown:=true;
+								        									media:=pause;
+												        					wmpFileName:=fname;
+																        	media:=loadfilefs('/'+fpath+fname, mmapi.midifile, 100);
+        																	media:=play;
+				        													//wmpDuration:=getDuration;
+								        									//wmpPosition:=0;
+                                          end;
+                                          
+if endwith(locase(fname), '.midi')=1 then begin
+                                           SetUpper(id_wmp);
+        												   				 Windows[id_wmp].isActive:=true;
+				        								  				 Windows[id_wmp].isShown:=true;
+								        									 media:=pause;
+												        					 wmpFileName:=fname;
+																        	 media:=loadfilefs('/'+fpath+fname, mmapi.midifile, 100);
+        																	 media:=play;
+				        													 //wmpDuration:=getDuration;
+								        									 //wmpPosition:=0;
+                                           end;
+                                          
+if endwith(locase(fname), '.jpg')=1 then begin
+                                          SetUpper(id_imaging);
+				        													Windows[id_imaging].isActive:=true;
+								        									Windows[id_imaging].isShown:=true;
+												        					tmp_image:=imloadjsr75.loadimage('/'+fpath+fname);
+																        	if GetImageWidth(tmp_image)/9<GetWidth-24 then k:=9;
+        																	if GetImageWidth(tmp_image)/8<GetWidth-24 then k:=8;
+				        													if GetImageWidth(tmp_image)/7<GetWidth-24 then k:=7;
+								        									if GetImageWidth(tmp_image)/6<GetWidth-24 then k:=6;
+												        					if GetImageWidth(tmp_image)/5<GetWidth-24 then k:=5;
+																        	if GetImageWidth(tmp_image)/4<GetWidth-24 then k:=4;
+        																	if GetImageWidth(tmp_image)/3<GetWidth-24 then k:=3;
+				        													if GetImageWidth(tmp_image)/2<GetWidth-24 then k:=2;
+								        									if GetImageWidth(tmp_image)/1<GetWidth-24 then k:=1;
+												        					tmp_image:=resize_image(tmp_image, GetImageWidth(tmp_image)/k, GetImageHeight(tmp_image)/k);
+																        	viewer_image:=tmp_image;
+        																	viewer_k:=IntegerToString(100/k)+'%';
+				        													Windows[id_imaging].x:=GetWidth/2-GetImageWidth(viewer_image)/2-12;
+								        									Windows[id_imaging].y:=GetHeight/2-GetImageHeight(viewer_image)/2-20;
+												        					Windows[id_imaging].width:=GetImageWidth(viewer_image)+24;
+																        	Windows[id_imaging].height:=GetImageHeight(viewer_image)+40;
+        																	ViewerFileName:='/'+fpath+fname;
+        																	GifIsLoaded:=false;
+                                          end;
+                                          
+if endwith(locase(fname), '.png')=1 then begin
+                                          SetUpper(id_imaging);
+				        													Windows[id_imaging].isActive:=true;
+								        									Windows[id_imaging].isShown:=true;
+												        					tmp_image:=imloadjsr75.loadimage('/'+fpath+fname);
+																        	if GetImageWidth(tmp_image)/9<GetWidth-24 then k:=9;
+        																	if GetImageWidth(tmp_image)/8<GetWidth-24 then k:=8;
+				        													if GetImageWidth(tmp_image)/7<GetWidth-24 then k:=7;
+								        									if GetImageWidth(tmp_image)/6<GetWidth-24 then k:=6;
+												        					if GetImageWidth(tmp_image)/5<GetWidth-24 then k:=5;
+																        	if GetImageWidth(tmp_image)/4<GetWidth-24 then k:=4;
+        																	if GetImageWidth(tmp_image)/3<GetWidth-24 then k:=3;
+				        													if GetImageWidth(tmp_image)/2<GetWidth-24 then k:=2;
+								        									if GetImageWidth(tmp_image)/1<GetWidth-24 then k:=1;
+												        					tmp_image:=resize_image(tmp_image, GetImageWidth(tmp_image)/k, GetImageHeight(tmp_image)/k);
+																        	viewer_image:=tmp_image;
+        																	viewer_k:=IntegerToString(100/k)+'%';
+				        													Windows[id_imaging].x:=GetWidth/2-GetImageWidth(viewer_image)/2-12;
+								        									Windows[id_imaging].y:=GetHeight/2-GetImageHeight(viewer_image)/2-20;
+												        					Windows[id_imaging].width:=GetImageWidth(viewer_image)+24;
+																        	Windows[id_imaging].height:=GetImageHeight(viewer_image)+40;
+        																	ViewerFileName:='/'+fpath+fname;
+        																	GifIsLoaded:=false;
+                                          end;
+                                          
+if endwith(locase(fname), '.bmp')=1 then begin
+                                          SetUpper(id_imaging);
+				        													Windows[id_imaging].isActive:=true;
+								        									Windows[id_imaging].isShown:=true;
+												        					tmp_image:=imloadjsr75.loadimage('/'+fpath+fname);
+																        	if GetImageWidth(tmp_image)/9<GetWidth-24 then k:=9;
+        																	if GetImageWidth(tmp_image)/8<GetWidth-24 then k:=8;
+				        													if GetImageWidth(tmp_image)/7<GetWidth-24 then k:=7;
+								        									if GetImageWidth(tmp_image)/6<GetWidth-24 then k:=6;
+												        					if GetImageWidth(tmp_image)/5<GetWidth-24 then k:=5;
+																        	if GetImageWidth(tmp_image)/4<GetWidth-24 then k:=4;
+        																	if GetImageWidth(tmp_image)/3<GetWidth-24 then k:=3;
+				        													if GetImageWidth(tmp_image)/2<GetWidth-24 then k:=2;
+								        									if GetImageWidth(tmp_image)/1<GetWidth-24 then k:=1;
+												        					tmp_image:=resize_image(tmp_image, GetImageWidth(tmp_image)/k, GetImageHeight(tmp_image)/k);
+																        	viewer_image:=tmp_image;
+        																	viewer_k:=IntegerToString(100/k)+'%';
+				        													Windows[id_imaging].x:=GetWidth/2-GetImageWidth(viewer_image)/2-12;
+								        									Windows[id_imaging].y:=GetHeight/2-GetImageHeight(viewer_image)/2-20;
+												        					Windows[id_imaging].width:=GetImageWidth(viewer_image)+24;
+																        	Windows[id_imaging].height:=GetImageHeight(viewer_image)+40;
+        																	ViewerFileName:='/'+fpath+fname;
+        																	GifIsLoaded:=false;
+                                          end;
+                                          
+if endwith(locase(fname), '.gif')=1 then begin
+                                          SetUpper(id_imaging);
+				        													Windows[id_imaging].isActive:=true;
+								        									Windows[id_imaging].isShown:=true;
+												        					{tmp_image:=imloadjsr75.loadimage('/'+fpath+fname);
+																        	if GetImageWidth(tmp_image)/9<GetWidth-24 then k:=9;
+        																	if GetImageWidth(tmp_image)/8<GetWidth-24 then k:=8;
+				        													if GetImageWidth(tmp_image)/7<GetWidth-24 then k:=7;
+								        									if GetImageWidth(tmp_image)/6<GetWidth-24 then k:=6;
+												        					if GetImageWidth(tmp_image)/5<GetWidth-24 then k:=5;
+																        	if GetImageWidth(tmp_image)/4<GetWidth-24 then k:=4;
+        																	if GetImageWidth(tmp_image)/3<GetWidth-24 then k:=3;
+				        													if GetImageWidth(tmp_image)/2<GetWidth-24 then k:=2;
+								        									if GetImageWidth(tmp_image)/1<GetWidth-24 then k:=1;
+												        					tmp_image:=resize_image(tmp_image, GetImageWidth(tmp_image)/k, GetImageHeight(tmp_image)/k);
+																        	viewer_image:=tmp_image;
+        																	viewer_k:=IntegerToString(100/k)+'%';}
+        																	
+        																	if load_Gif_Fs('file:///'+fpath+fname)=1 then gg1:=true;
+        																	viewer_image:=get_frame;
+        																	viewer_k:='100%';
+        																	{if GifIsLoaded then cancel;
+        																	schedule(1,get_delay); }
+        																	
+				        													Windows[id_imaging].x:=GetWidth/2-GetImageWidth(viewer_image)/2-12;
+								        									Windows[id_imaging].y:=GetHeight/2-GetImageHeight(viewer_image)/2-20;
+												        					Windows[id_imaging].width:=GetImageWidth(viewer_image)+24;
+																        	Windows[id_imaging].height:=GetImageHeight(viewer_image)+40;
+        																	ViewerFileName:='/'+fpath+fname;
+        																	GifIsLoaded:=true;
+                                          end;
+end;
+
+procedure on_timer;
+begin
+if GifIsLoaded then viewer_image:=get_frame;
+cancel;
+schedule(get_delay,get_delay); 
+end;
+
+procedure p1;
+begin
+while true do begin
+               if GifIsLoaded then begin
+                                    viewer_image:=get_frame;
+                                    delay(get_delay);
+                                    end
+                               else Delay(100);
+                end;
+end;
+
+procedure DrawFileList;
+var I:integer;
+    P:integer;
+    tmp:string;
+    st:integer;
+    gg1:boolean;
+begin
+Font(0);
+I:=StartPosition;
+listSize:=WindowHeight(1)/15-2;
+repeat if mc_array[I]<>'' then begin
+                                if I<=StartPosition+listSize+1 then begin
+                                //SetClip(0,0,GetWidth-16,GetHeight);
+                                //St:=DrawHiddenButton(mc_array[I], 15, 18+(15*(I-StartPosition+1)));
+                                SetClip(WindowX(1),WindowY(1),WindowWidth(1)-16,WindowHeight(1));
+                                st:=DrawHiddenButton(mc_array[I],WindowX(1)+15,WindowY(1)+(15*(I-StartPosition+1)),WindowWidth(1)-15-15,15,1);
+                                DrawIcon(i, WindowX(1), WindowY(1)+(15*(I-StartPosition+1)));
+                                if st=1 then begin
+                                if GetChar(mc_array[I], Length(mc_array[I])-1)='/' then begin mc_path2:=mc_path+mc_array[I]; StartPosition:=1; end
+                                                                                   else begin WFileOpen(mc_path,mc_array[i]); end;
+                                DelayAfterDraw:=true;
+                                end;{
+                                if (st=2)and(GetChar(mc_array[I], Length(mc_array[I])-1)<>'/') then begin
+                                DelayAfterDraw:=true;
+                                TurnPopup(true);
+                                FMIndex:=I;
+                                DelayAfterDraw:=true;
+                                end;}
+                                
+                                {if I<=StartPosition+listSize+1 then DrawIcon(i, 0, 18+(15*(I-StartPosition+1)));}
+                                end;
+I:=I+1;
+                                end;
+until mc_array[I]='';  
+itemscount:=i-1;
+
+SetClip(0,0,GetWidth,GetHeight);     
+
+SetColor(0,0,0);
+if GetStringWidth(mc_path)+45<WindowWidth(1) then DrawText(mc_path, WindowX(1)+13, WindowY(1)+(15/2)-(GetStringHeight(mc_path)/2) )
+                                             else begin
+                                                   SetClip(WindowX(1)+13,0,WindowWidth(1)-45,GetHeight);
+                                                   DrawText(mc_path, WindowX(1)+WindowWidth(1)-GetStringWidth(mc_path)-31, WindowY(1)+(15/2)-(GetStringHeight(mc_path)/2) );
+                                                   SetClip(0,0,GetWidth,GetHeight);
+                                                   end;
+
+if DrawGraphicButton(iup,iup,iup,WindowX(1),WindowY(1),1) then begin
+                                                                if mc_path<>'' then begin
+                                                                                     P:=Length(mc_path2)-1;
+                                                                                     repeat P:=P-1 until (GetChar(mc_path2, P)='/')or(P=-1);
+                                                                                     tmp:=mc_path2;
+                                                                                     mc_path2:='';
+                                                                                     mc_path2:=Copy(tmp, 0, P+1);
+                                                                                     StartPosition:=1;
+                                                                                     DelayAfterDraw:=true;
+                                                                                     end;
+                                                                end;
+                                                                
+if DrawGraphicButton(iscrollup,iscrollup,iscrollup,WindowX(1)+WindowWidth(1)-16,WindowY(1)+16,1) then StartPosition:=StartPosition-1;
+if DrawGraphicButton(iscrolldown,iscrolldown,iscrolldown,WindowX(1)+WindowWidth(1)-16,WindowY(1)+WindowHeight(1)-16,1) then StartPosition:=StartPosition+1;
+if StartPosition+listsize>itemscount then StartPosition:=StartPosition-1;
+if StartPosition<1 then StartPosition:=1;
+          
+SetHint('Текущая папка',WindowX(1)+13,WindowY(1),WindowWidth(1)-45,15,1);
+SetHint('Вверх',WindowX(1),WindowY(1),13,16,1);
+end;
+
+function RequestURL(str,def:string):string;
+var textField_id: integer;  
+    exitCmd, clicked: command; 
+    rn:string;
+begin 
+ClearForm;
+textField_id := formAddTextField(str, def, 255, TF_URL);  
+exitCmd := CreateCommand('OK', CM_OK, 1); 
+AddCommand(exitCmd); 
+showForm;
+repeat 
+clicked := GetClickedCommand; 
+until clicked <> EmptyCommand; 
+RequestURL := FormGetText(textField_id);
+ShowCanvas;
+end;
+
+procedure DrawTextField(output,x,y,width,height,parentWindow:integer);
+begin
+SetColor(0,0,0);
+DrawRect(x,y,width-1,height-1);
+SetColor(128,128,128);
+DrawRect(x+1,y+1,width-1,height-1);
+SetColor(0,0,0);
+SetClip(x+3,y,width-6,height);
+DrawText(textfields[output], x+3, y+height/2-GetStringHeight(textfields[output])/2);
+SetClip(0,0,GetWidth,GetHeight);
+if (CursorX>x)and(CursorY>y)and(CursorX<x+width)and(CursorY<y+height)and(windows[parentWindow].isUpper)and(keytoaction(keycode)=GA_FIRE) then textfields[output]:=RequestURL('Введите адрес','http://');
+end;
+
+procedure DrawWindow(targetWindow:integer);
+var I:integer;
+    gg1:boolean;
+begin
+if windows[targetWindow].isShown then begin
+SetClip(0,0,windows[targetWindow].x+windows[targetWindow].width-12,GetHeight);
+for I:=(windows[targetWindow].x+12)/2 to (windows[targetWindow].x+windows[targetWindow].width-12)/2 do DrawImage(iwinup,i*2,windows[targetWindow].y);
+for I:=(windows[targetWindow].x+12)/2 to (windows[targetWindow].x+windows[targetWindow].width-12)/2 do DrawImage(iwindown,i*2,windows[targetWindow].y+windows[targetWindow].height-12);
+SetClip(0,0,GetWidth,GetHeight);
+
+SetClip(0,0,GetWidth,windows[targetWindow].y+windows[targetWindow].height-12);
+for I:=(windows[targetWindow].y+12)/2 to (windows[targetWindow].y+windows[targetWindow].height-12)/2 do DrawImage(iwinleft,windows[targetWindow].x,i*2);
+for I:=(windows[targetWindow].y+12)/2 to (windows[targetWindow].y+windows[targetWindow].height-12)/2 do DrawImage(iwinright,windows[targetWindow].x+windows[targetWindow].width-12,i*2);
+SetClip(0,0,GetWidth,GetHeight);
+
+SetColor(255,255,255);
+fillrect(windows[targetWindow].x+12,windows[targetWindow].y+12,windows[targetWindow].width-24,windows[targetWindow].height-24);
+
+if (cursorX>windows[targetWindow].x)and(CursorX<windows[targetWindow].x+windows[targetWindow].width)and(cursorY>windows[targetWindow].y)and(cursorY<windows[targetWindow].y+12)and(keytoaction(keycode)=GA_FIRE) then SetUpper(targetWindow);
+
+if DrawGraphicButton(iwinleftup,iwinleftup,iwinleftup,windows[targetWindow].x,windows[targetWindow].y,targetWindow) then begin DragMoveWindow:=targetWindow; DragMove:=(not DragMove); DelayAfterDraw:=true; end;
+DrawImage(iwinleftdown,windows[targetWindow].x,windows[targetWindow].y+windows[targetWindow].height-12);
+DrawImage(iwinrightup,windows[targetWindow].x+windows[targetWindow].width-12,windows[targetWindow].y);
+if DrawGraphicButton(iwinrightdown,iwinrightdown,iwinrightdown,windows[targetWindow].x+windows[targetWindow].width-12,windows[targetWindow].y+windows[targetWindow].height-12,targetWindow) then begin DragResize:=(not DragResize); DelayAfterDraw:=true; DragResizeWindow:=targetWindow; end;
+
+if windows[targetWindow].IsUpper then begin
+                                       Font(0);
+                                       DrawString(windows[targetWindow].title, windows[targetWindow].x+12, windows[targetWindow].y+6-TextHeight/2);
+                                       end;
+                                 else begin
+                                       Font(1);
+                                       DrawString(windows[targetWindow].title, windows[targetWindow].x+12, windows[targetWindow].y+6-TextHeight/2);
+                                       end;
+
+if DrawGraphicButton(iwinx,iwinx_hover,iwinx,windows[targetWindow].x+windows[targetWindow].width-12-21+7,windows[targetWindow].y+1, targetWindow) then begin windows[targetWindow].isActive:=false; windows[targetWindow].isShown:=false; SetNextUpper(targetWindow); DelayAfterDraw:=true; onClose(targetWindow); end;
+if windows[targetWindow].IsMaximizable then if DrawGraphicButton(iwinresize,iwinresize_hover,iwinresize,windows[targetWindow].x+windows[targetWindow].width-12-21+7-13,windows[targetWindow].y+1, targetWindow) then begin windows[targetWindow].x:=0; windows[targetWindow].y:=0; windows[targetWindow].width:=GetWidth; windows[targetWindow].height:=GetHeight-16; DelayAfterDraw:=true; end;
+if windows[targetWindow].IsMinimizable then if DrawGraphicButton(iwinminimize,iwinminimize_hover,iwinminimize,windows[targetWindow].x+windows[targetWindow].width-12-21+7-13-12,windows[targetWindow].y+1, targetWindow) then begin windows[targetWindow].isShown:=false; SetNextUpper(targetWindow); DelayAfterDraw:=true; end;
+end;
+end;
+
+procedure ClearArray;
+var I:integer;
+begin
+for I:=1 to 999 do mc_array[I]:='';
+end;
+
+procedure ShowDir;
+var I:integer;
+r: integer;
+K: string;
+begin
+if mc_path<>mc_path2 then begin
+                           mc_path:=mc_path2;
+                           if mc_path='' then begin
+                                                mc_data:=Get_roots;
+                                                mc_fdata:='';
+                                                
+                                                ClearArray;
+																								I:=1;
+																								r:=0;
+                                                repeat 
+																								mc_array[I]:=mc_array[I]+GetChar(mc_data, r);
+																								r:=r+1;
+																								if GetChar(mc_data, r)='|' then begin r:=r+1; I:=I+1; end;
+																								until r>=Length(mc_data)
+                                                end;
+                                          else begin
+                                               ClearArray;
+                                               I:=1;
+                                               mc_array[1]:=findfirst(mc_path);
+                                               if mc_array[1]<>'' then begin
+                                                                        repeat
+                                                                        I:=I+1;
+                                                                        mc_array[I]:=findnext;
+                                                                        until mc_array[I]='';
+                                                                        end;
+                                               end;
+                           end;
+end;
+
+procedure MyComputer;
+var I:integer;
+begin
+ShowDir;
+DrawFileList;
+end;
+
+procedure WMP;
+var i,j:integer;
+     f,g:integer;
+begin
+SetColor(0,0,0);
+fillRect(WindowX(id_wmp),WindowY(id_wmp),WindowWidth(id_wmp),WindowHeight(id_wmp));
+
+for i:=1 to 10 do begin
+                   visual[i]:=Random(WindowHeight(id_wmp)-20);
+                   visual2[i]:=visual2[i]-2;
+                   if visual2[i]<visual[i]+1 then visual2[i]:=visual[i]+1;
+                   SetColor(255,128,0);
+                   fillRect(windowX(id_wmp)+WindowWidth(id_wmp)/10*(i-1), WindowY(id_wmp)+WindowHeight(id_wmp)-17-visual[i],WindowWidth(id_wmp)/10,visual[i]);
+                   SetColor(0,0,0);
+                   //for j:=1 to 10 do DrawLine(WindowX(id_wmp), WindowY(id_wmp)+WindowHeight(id_wmp)/10*j, WindowX(id_wmp)+WindowWidth(id_wmp),WindowY(id_wmp)+WindowHeight(id_wmp)/10*j);
+                   //for j:=1 to 10 do DrawLine(windowX(id_wmp)+WindowWidth(id_wmp)/10*j,WindowY(id_wmp),windowX(id_wmp)+WindowWidth(id_wmp)/10*j,WindowY(id_wmp)+WindowHeight(id_wmp));
+                   SetColor(255,0,0);
+                   drawLine(windowX(id_wmp)+WindowWidth(id_wmp)/10*(i-1), WindowY(id_wmp)+WindowHeight(id_wmp)-17-visual2[i],windowX(id_wmp)+WindowWidth(id_wmp)/10*i-1,WindowY(id_wmp)+WindowHeight(id_wmp)-17-visual2[i]);
+                   end;
+
+for i:=WindowX(id_wmp) to WindowX(id_wmp)+WindowWidth(id_wmp) do DrawImage(player_dn,i,WindowY(id_wmp)+WindowHeight(id_wmp)-17);
+
+{SetColor(255,255,255);}
+{
+for f:=WindowX(id_wmp) to WindowX(id_wmp)+WindowWidth(id_wmp) do begin
+                                                                  g:=Random(WindowHeight(id_wmp)-17);
+                                                                  DrawLine(f,WindowY(id_wmp)+WindowHeight(id_wmp)-17-g,f,WindowY(id_wmp)+WindowHeight(id_wmp)-17);
+                                                                  end;
+}
+
+if DrawGraphicButton(play_button,play_hover,play_down,WindowX(id_wmp)+WindowWidth(id_wmp)/2-16,WindowY(id_wmp)+WindowHeight(id_wmp)-17,id_wmp) then media:=play;
+if DrawGraphicButton(pause_button,pause_hover,pause_down,WindowX(id_wmp)+WindowWidth(id_wmp)/2,WindowY(id_wmp)+WindowHeight(id_wmp)-17,id_wmp) then media:=pause;
+
+SetColor(128,255,128);
+SetClip(WindowX(id_wmp),0,WindowWidth(id_wmp)/2-16,GetHeight);
+DrawText(wmpFileName,WindowX(id_wmp)-wmpl,WindowY(id_wmp)+windowHeight(id_wmp)-17/2-GetStringHeight(wmpFileName)/2);
+wmpl:=wmpl+1;
+if wmpl>GetStringWidth(wmpFileName) then wmpl:=0-WindowWidth(id_wmp)/2-16;
+SetClip(0,0,GetWidth,GetHeight);
+
+{SetColor(255,255,255);
+wmpPosition:=audiojsr75.getposition;
+DrawText(IntegerToString(wmpPosition)+'/'+IntegerToString(wmpDuration),WindowX(id_wmp)+5,WindowY(id_wmp)+WindowHeight(id_wmp)-17/2-GetStringHeight(IntegerToString(wmpPosition)+'/'+IntegerToString(wmpDuration)));
+}
+
+end;
+
+procedure IE;
+var i:integer;
+    fh:integer;
+begin
+DrawTextField(1, WindowX(id_ie), WindowY(id_ie), WindowWidth(id_ie)-17, 16, id_ie);
+SetHint('Перейти',WindowX(id_ie)+WindowWidth(id_ie)-16,WindowY(id_ie),16,16,id_ie);
+if DrawGraphicButton(arrow,arrow_l,arrow_d,WindowX(id_ie)+WindowWidth(id_ie)-16,WindowY(id_ie),id_ie) then begin
+                                                                                                            while ( not OpenHttp(conn, textfields[1]) ) do begin end;
+                                                                                                            SetHttpMethod(conn, GET); 
+                                                                                                            AddHttpHeader(conn, 'User-agent', 'm1kc'); 
+                                                                                                            if SendHttpMessage(conn) <> 200 then gg1:=true;
+                                                                                                            htmlBody := GetHttpResponse(conn);
+                                                                                                            CloseHttp(conn); 
+                                                                                                            html(htmlBody);
+                                                                                                            
+                                                                                                            Font(0);
+                                                                                                            TextWindow(WindowX(id_ie), WindowY(id_ie)+16, WindowWidth(id_ie)-16, WindowHeight(id_ie)-16);
+                                                                                                            fh:=Format('',0);
+                                                                                                            for i:=0 to len-1 do begin
+                                                                                                                                  fh:=Format(parse.get(i)+chr(32)+chr(13),1);
+                                                                                                                                  end;
+                                                                                                            end;
+                                                                                                            
+if (prevX=windows[id_ie].x)and(prevY=windows[id_ie].y)and(prevW=windows[id_ie].width)and(prevH=windows[id_ie].height) then DrawTextWindow
+                                                                                                                        else begin
+Font(0);
+TextWindow(WindowX(id_ie), WindowY(id_ie)+16, WindowWidth(id_ie)-16, WindowHeight(id_ie)-16);
+fh:=Format('',0);
+for i:=0 to len-1 do begin
+                      fh:=Format(parse.get(i)+chr(32)+chr(13),1);
+                      end;
+DrawTextWindow;
+																																																															end;
+
+prevX:=windows[id_ie].x;
+prevY:=windows[id_ie].y;
+prevW:=windows[id_ie].width;
+prevH:=windows[id_ie].height;
+end;
+
+procedure Imaging;
+begin
+
+DrawImage(viewer_image,WindowX(id_imaging),WindowY(id_imaging)+16);
+SetColor(236,233,216);
+fillRect(WindowX(id_imaging),WindowY(id_imaging),WindowWidth(id_imaging),16);
+
+
+
+if DrawItem('Меню', WindowX(id_imaging), WindowY(id_imaging), 48, 16, false, id_imaging)=2 then ImagingMenu:=not ImagingMenu;
+if ImagingMenu=false then ImagingSubMenu:=false;
+
+if ImagingMenu then begin
+                     if drawItem('На фон', WindowX(id_imaging), WindowY(id_imaging)+16, 64, 16, true, id_imaging)=1 then begin
+                                                                                                                          ImagingSubMenu:=true;
+                                                                                                                          ImagingSubMenuNumber:=1;
+                                                                                                                          end;
+                     if drawItem('Конв. в', WindowX(id_imaging), WindowY(id_imaging)+32, 64, 16, true, id_imaging)=1 then begin
+                                                                                                                           ImagingSubMenu:=true;
+                                                                                                                           ImagingSubMenuNumber:=2;
+                                                                                                                           end;
+                     if drawItem('Resize', WindowX(id_imaging), WindowY(id_imaging)+48, 64, 16, false, id_imaging)=2 then begin
+                                                                                                                           
+                                                                                                                           end;
+                     
+                     end;
+                     
+if ImagingSubMenu then begin
+                        if ImagingSubMenuNumber=1 then begin
+                                                        if DrawItem('По центру', WindowX(id_imaging)+64, WindowY(id_imaging)+16, 64, 16, false, id_imaging)=2 then ifon:=imloadjsr75.loadimage(ViewerFileName);
+                                                        if DrawItem('Растянуть', WindowX(id_imaging)+64, WindowY(id_imaging)+32, 64, 16, false, id_imaging)=2 then ifon:=Resize_image(imloadjsr75.loadimage(ViewerFileName),GetWidth,GetHeight);
+                                                        end;
+                        if ImagingSubMenuNumber=2 then begin
+                                                        if DrawItem('BMP', WindowX(id_imaging)+64, WindowY(id_imaging)+32, 64, 16, false, id_imaging)=2 then savebmp(imloadjsr75.loadimage('/'+ViewerFileName), '/'+ViewerFileName+'.bmp');
+                                                        if DrawItem('PNG', WindowX(id_imaging)+64, WindowY(id_imaging)+48, 64, 16, false, id_imaging)=2 then if save_png(imloadjsr75.loadimage('/'+ViewerFileName), ViewerFileName+'.png')=1 then gg1:=true;
+                                                        if DrawItem('JPEG HQ', WindowX(id_imaging)+64, WindowY(id_imaging)+64, 64, 16, false, id_imaging)=2 then Jpeg.saveimagetofile(imloadjsr75.loadimage('/'+ViewerFileName), 100, '/'+ViewerFileName+'.jpg');
+                                                        if DrawItem('JPEG LQ', WindowX(id_imaging)+64, WindowY(id_imaging)+80, 64, 16, false, id_imaging)=2 then Jpeg.saveimagetofile(imloadjsr75.loadimage('/'+ViewerFileName), 50, '/'+ViewerFileName+'.jpg');
+                                                        end;
+                        end;
+
+//
+
+SetColor(0,0,0);
+DrawText(viewer_k, WindowX(id_imaging)+WindowWidth(id_imaging)-GetStringWidth(viewer_k),WindowY(id_imaging)+WindowHeight(id_imaging)-GetStringHeight(viewer_k));
+SetColor(255,255,255);
+DrawText(viewer_k, WindowX(id_imaging)+WindowWidth(id_imaging)-GetStringWidth(viewer_k)-1,WindowY(id_imaging)+WindowHeight(id_imaging)-GetStringHeight(viewer_k)-1);
+end;
+
+procedure ControlPanel;
+var ff1,ff2,ff3,ff4,ff5:boolean;
+    pw:integer;
+begin
+
+pw:=WindowWidth(id_cp)/3;
+
+if cp_tab=1 then ff1:=true else ff1:=false;
+if cp_tab=2 then ff2:=true else ff2:=false;
+if cp_tab=3 then ff3:=true else ff3:=false;
+if cp_tab=4 then ff4:=true else ff4:=false;
+if cp_tab=5 then ff5:=true else ff5:=false;
+
+SetClip(WindowX(id_cp),WindowY(id_cp),pw,WindowHeight(id_cp));
+
+if DrawTab('Система',WindowX(id_cp),WindowY(id_cp),pw,16,ff1,id_cp) then cp_tab:=1;
+if DrawTab('Прошивка',WindowX(id_cp),WindowY(id_cp)+16,pw,16,ff2,id_cp) then cp_tab:=2;
+if DrawTab('Фон',WindowX(id_cp),WindowY(id_cp)+32,pw,16,ff3,id_cp) then cp_tab:=3;
+if DrawTab('Панель задач',WindowX(id_cp),WindowY(id_cp)+48,pw,16,ff4,id_cp) then cp_tab:=4;
+if DrawTab('Скорость мыши',WindowX(id_cp),WindowY(id_cp)+64,pw,16,ff5,id_cp) then cp_tab:=5;
+
+SetClip(WindowX(id_cp),WindowY(id_cp),WindowWidth(id_cp),WindowHeight(id_cp));
+
+SetColor(0,0,0);
+DrawLine(WindowX(id_cp)+pw,WindowY(id_cp),WindowX(id_cp)+pw,WindowY(id_cp)+WindowHeight(id_cp));
+
+if cp_tab=1 then begin
+                  DrawText('Экран: ',WindowX(id_cp)+pw+2,WindowY(id_cp));
+                  DrawText(IntegerToString(GetWidth)+'x'+IntegerToString(GetHeight),WindowX(id_cp)+pw+2,WindowY(id_cp)+16);
+                  DrawText(IntegerToString(display_colors)+' цветов',WindowX(id_cp)+pw+2,WindowY(id_cp)+32);
+                  DrawText('Память:',WindowX(id_cp)+pw+2,WindowY(id_cp)+48);
+                  DrawText(IntegerToString(memory.total),WindowX(id_cp)+pw+2,WindowY(id_cp)+64);
+                  DrawText('Свободно:',WindowX(id_cp)+pw+2,WindowY(id_cp)+80);
+                  DrawText(IntegerToString(memory.free),WindowX(id_cp)+pw+2,WindowY(id_cp)+96);
+                  end;
+                  
+if cp_tab=2 then begin
+                  DrawText(getProperty('microedition.platform'),WindowX(id_cp)+pw+2,WindowY(id_cp));
+                  DrawText(getProperty('microedition.profiles'),WindowX(id_cp)+pw+2,WindowY(id_cp)+16);
+                  DrawText(getProperty('microedition.configuration'),WindowX(id_cp)+pw+2,WindowY(id_cp)+32);
+                  DrawText(getProperty('microedition.locale'),WindowX(id_cp)+pw+2,WindowY(id_cp)+48);
+                  DrawText(getProperty('microedition.encoding'),WindowX(id_cp)+pw+2,WindowY(id_cp)+64);
+                  end;
+                  
+if cp_tab=3 then begin
+                  //if DrawTab('Уст.стандартный',WindowX(id_cp)+50,WindowY(id_cp)+10,WindowWidth(id_cp)-50,16,false,id_cp) then ifon:=resize_image(LoadImage('/55zzz.png'),GetWidth,GetHeight);
+                  if DrawButton('Уст.стандартный',WindowX(id_cp)+pw+10,WindowY(id_cp)+10,WindowWidth(id_cp)-pw-20,16,id_cp) then ifon:=resize_image(LoadImage('/55zzz.png'),GetWidth,GetHeight);
+                  end;
+                  
+if cp_tab=4 then begin
+                  if DrawButton('Компактная',WindowX(id_cp)+pw+10,WindowY(id_cp)+10,WindowWidth(id_cp)-pw-20,16,id_cp) then taskbar_view:=COMPACT;
+                  if DrawButton('С надписями',WindowX(id_cp)+pw+10,WindowY(id_cp)+40,WindowWidth(id_cp)-pw-20,16,id_cp) then taskbar_view:=EXTENDED;
+                  end;
+                  
+if cp_tab=5 then begin
+                  if DrawButton('+',WindowX(id_cp)+pw+10,WindowY(id_cp)+10,20,16,id_cp) then CursorSpeed:=CursorSpeed+1;
+                  if DrawButton('-',WindowX(id_cp)+pw+40,WindowY(id_cp)+10,20,16,id_cp) then CursorSpeed:=CursorSpeed-1;
+                  if CursorSpeed<1 then CursorSpeed:=1;
+                  DrawText('Текущая: '+IntegerToString(CursorSpeed),WindowX(id_cp)+pw+10,WindowY(id_cp)+40);
+                  end;
+                  
+SetClip(0,0,getWidth,getHeight);
+end;
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+begin
+
+LoadSources;
+
+thread10.init(1);
+thread10.start(1);
+
+while True do begin
+  keycode:=GetKeyPressed;
+  
+  if wtime=GetCurrentTime then wfps:=wfps+1
+                          else begin
+                                fps:=wfps;
+                                wfps:=0;
+                                wtime:=GetCurrentTime;
+                                end;
+  
+  if KeyToAction(keycode)=GA_UP then cursorY:=cursorY-CursorSpeed;
+  if KeyToAction(keycode)=GA_DOWN then cursorY:=cursorY+CursorSpeed;
+  if KeyToAction(keycode)=GA_LEFT then cursorx:=cursorX-CursorSpeed;
+  if KeyToAction(keycode)=GA_RIGHT then cursorx:=cursorX+CursorSpeed;
+     
+  if CursorX>GetWidth-1 then CursorX:=GetWidth-1;
+  if CursorY>GetHeight-2 then CursorY:=GetHeight-2;
+  if CursorX<0 then CursorX:=0;
+  if CursorY<0 then CursorY:=0;
+  
+  setColor(0,0,0);
+  fillRect(0,0,GetWidth,GetHeight);
+  DrawImage(ifon,GetWidth/2-GetImageWidth(ifon)/2,GetHeight/2-GetImageHeight(ifon)/2);
+  
+  for II:=1 to 25 do begin
+                      if DrawGraphicButton(shortcuts[ii].icon,shortcuts[ii].icon,shortcuts[ii].icon,shortcuts[ii].x,shortcuts[ii].y,windows_order[100])and(PointIsClear) then UseShortcut(shortcuts[ii].usage);
+                      end;
+  
+  for II:=1 to 100 do begin
+                       DrawWindow(windows_order[ii]);
+                       if (windows_order[ii]=ID_MyComputer)and(windows[ID_MyComputer].isShown) then MyComputer;
+                       if (windows_order[ii]=ID_WMP)and(windows[ID_WMP].isShown) then wmp;
+                       if (windows_order[ii]=ID_ie)and(windows[ID_ie].isShown) then ie;
+                       if (windows_order[ii]=ID_imaging)and(windows[ID_imaging].isShown) then Imaging;
+                       if (windows_order[ii]=ID_cp)and(windows[ID_cp].isShown) then ControlPanel;
+                       end;
+
+  for II:=1 to 25 do begin
+                      if (PointIsClear) then SetHint(shortcuts[ii].title,shortcuts[ii].x,shortcuts[ii].y,GetImageWidth(shortcuts[ii].icon),GetImageHeight(shortcuts[ii].icon),windows_order[100]);
+                      end;
+    
+  DrawImage(idown,0,GetHeight-16);
+  //ПЕРЕДЕЛАТЬ//
+  DrawImage(istart,0,GetHeight-16);
+  //////////////
+  
+  DrawImage(isplitter,25,GetHeight-16);
+  
+  TaskBar;
+  
+  UpdateTime;
+  
+  SetColor(255,255,255);
+  DrawText(GetTimeString, GetWidth-GetStringWidth(GetTimeString)-1, GetHeight-8-GetStringHeight(GetTimeString)/2);
+  DrawImage(isplitter, GetWidth-GetStringWidth(GetTimeString)-1-6, GetHeight-16);
+  
+  //SetHint('Начните работу с нажатия этой кнопки',0,GetHeight-16,GetImageWidth(istart),16,windows_order[100]);
+  SetHint(GetDateString,GetWidth-GetStringWidth(GetTimeString)-1,GetHeight-16,GetStringWidth(GetTimeString)+1,16,windows_order[100]);
+  
+  DrawImage(ikursor, cursorx, cursory);
+  
+  CheckDrag;
+  
+  SetColor(255,255,255);
+  Drawtext(integerToString(fps)+' fps',0,0);
+  //if fps<>0 then CursorSpeed:=Trunc(80/fps);
+  if CursorSpeed=0 then CursorSpeed:=1;
+  
+  Repaint;
+  
+  if keyToAction(keycode)=GA_FIRE then repeat until (KeyToAction(GetKeyPressed)<>GA_FIRE);
+  
+  if MustExit then WExit;
+  if Keycode=KE_KEY0 then WExit;
+  
+  if keycode=KE_STAR then begin
+                           iwindown:=SetOpaque(iwindown,255);
+                           iwinleft:=SetOpaque(iwinleft,255);
+                           iwinright:=SetOpaque(iwinright,255);
+                           iwinleftdown:=SetOpaque(iwinleftdown,255);
+                           iwinrightdown:=SetOpaque(iwinrightdown,255);
+                           iwinleftup:=SetOpaque(iwinleftup,255);
+                           iwinrightup:=SetOpaque(iwinrightup,255);
+                           iwinup:=SetOpaque(iwinup,255);
+                           end;
+                           
+  if (keycode=-26)or(keycode=KE_KEY7) then begin
+                                            iscreen:=ImageFromCanvas(0,0,GetWidth,GetHeight);
+                                            //CapturedScreen;
+                                            if save_png(iscreen, screenshots_path)=1 then gg1:=true;
+                                            repeat until (GetKeyPressed<>-26)and(GetKeyPressed<>KE_KEY1);
+                                            end;
+                                            
+  memclean.clean;
+  end;
+end.
+ 

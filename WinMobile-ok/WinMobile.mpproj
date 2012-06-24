@@ -1,0 +1,96 @@
+<Project>
+	<MIDlet Name="WinMobile" Vendor="MIDletPascal" Version="1.0.0" Icon="/icon.png"/>
+	<Sources>
+		<source filename="WinMobile.mpsrc"/>
+	</Sources>
+	<Resources>
+		<resource filename="icon.png" configurations=":all:"/>
+		<resource filename="button.png" configurations=":all:"/>
+		<resource filename="wtitlez.png" configurations=":all:"/>
+		<resource filename="minimizezz.png" configurations=":all:"/>
+		<resource filename="barzz.png" configurations=":all:"/>
+		<resource filename="cursorzz.png" configurations=":all:"/>
+		<resource filename="55zzz.png" configurations=":all:"/>
+		<resource filename="back.png" configurations=":all:"/>
+		<resource filename="comp.png" configurations=":all:"/>
+		<resource filename="mail.png" configurations=":all:"/>
+		<resource filename="muk.png" configurations=":all:"/>
+		<resource filename="seting.png" configurations=":all:"/>
+		<resource filename="wmplayer.png" configurations=":all:"/>
+		<resource filename="140zz.png" configurations=":all:"/>
+		<resource filename="puskbutton.png" configurations=":all:"/>
+		<resource filename="logo.png" configurations=":all:"/>
+		<resource filename="wmp-down.png" configurations=":all:"/>
+		<resource filename="wmp-playbtn.png" configurations=":all:"/>
+		<resource filename="wmp-stopbtn.png" configurations=":all:"/>
+		<resource filename="wmp-sound.png" configurations=":all:"/>
+		<resource filename="kur.png" configurations=":all:"/>
+		<resource filename="kurs2.png" configurations=":all:"/>
+		<resource filename="diricon.png" configurations=":all:"/>
+		<resource filename="mycomp.png" configurations=":all:"/>
+		<resource filename="settings.png" configurations=":all:"/>
+		<resource filename="setts.png" configurations=":all:"/>
+		<resource filename="cpanel.png" configurations=":all:"/>
+		<resource filename="cpanel2.png" configurations=":all:"/>
+		<resource filename="motorf.png" configurations=":all:"/>
+		<resource filename="up.PNG" configurations=":all:"/>
+		<resource filename="wmplayer-mini.png" configurations=":all:"/>
+		<resource filename="cpanel-mini.png" configurations=":all:"/>
+		<resource filename="mouse-mini.png" configurations=":all:"/>
+		<resource filename="mycomp-mini.png" configurations=":all:"/>
+		<resource filename="iexplorer.png" configurations=":all:"/>
+		<resource filename="tetris.png" configurations=":all:"/>
+		<resource filename="listdown.png" configurations=":all:"/>
+		<resource filename="listup.png" configurations=":all:"/>
+		<resource filename="VCNV.class" configurations=":all:"/>
+		<resource filename="icon-pict.png" configurations=":all:"/>
+		<resource filename="JpegEncoder.class" configurations=":all:"/>
+		<resource filename="JpegEncoder$DCT.class" configurations=":all:"/>
+		<resource filename="JpegEncoder$Huffman.class" configurations=":all:"/>
+		<resource filename="JpegEncoder$JpegInfo.class" configurations=":all:"/>
+		<resource filename="mboxtitle.png" configurations=":all:"/>
+		<resource filename="ZStream.class" configurations=":all:"/>
+		<resource filename="Adler32.class" configurations=":all:"/>
+		<resource filename="Deflate$Config.class" configurations=":all:"/>
+		<resource filename="Deflate.class" configurations=":all:"/>
+		<resource filename="Encoder.class" configurations=":all:"/>
+		<resource filename="JZlib.class" configurations=":all:"/>
+		<resource filename="StaticTree.class" configurations=":all:"/>
+		<resource filename="Tree.class" configurations=":all:"/>
+		<resource filename="musicicon.png" configurations=":all:"/>
+		<resource filename="imageicon.png" configurations=":all:"/>
+		<resource filename="Windows_Startup.mp3" configurations=":all:"/>
+		<resource filename="Windows_Shutdown.mp3" configurations=":all:"/>
+		<resource filename="picdir.png" configurations=":all:"/>
+		<resource filename="cancel.png" configurations=":all:"/>
+		<resource filename="off.png" configurations=":all:"/>
+		<resource filename="barzzl.png" configurations=":all:"/>
+		<resource filename="minimizezzl.png" configurations=":all:"/>
+		<resource filename="MultiLineText.class" configurations=":all:"/>
+		<resource filename="cdisk.png" configurations=":all:"/>
+		<resource filename="P1.class" configurations=":all:"/>
+		<resource filename="P2.class" configurations=":all:"/>
+		<resource filename="P3.class" configurations=":all:"/>
+		<resource filename="P4.class" configurations=":all:"/>
+		<resource filename="P5.class" configurations=":all:"/>
+		<resource filename="P6.class" configurations=":all:"/>
+		<resource filename="P7.class" configurations=":all:"/>
+		<resource filename="P8.class" configurations=":all:"/>
+		<resource filename="P9.class" configurations=":all:"/>
+		<resource filename="P10.class" configurations=":all:"/>
+		<resource filename="itest.png" configurations=":all:"/>
+		<resource filename="listpos.png" configurations=":all:"/>
+		<resource filename="Verdana_7.dat" configurations=":all:"/>
+		<resource filename="Verdana_7.png" configurations=":all:"/>
+		<resource filename="Verdana_11.png" configurations=":all:"/>
+		<resource filename="Verdana_11.dat" configurations=":all:"/>
+		<resource filename="zza.png" configurations=":all:"/>
+		<resource filename="zza2.png" configurations=":all:"/>
+		<resource filename="txtico.png" configurations=":all:"/>
+		<resource filename="updisk.png" configurations=":all:"/>
+		<resource filename="newdir.png" configurations=":all:"/>
+	</Resources>
+	<BuildConfigurations>
+		<configuration name="Default" type="fullscreen" version="2" math="1"/>
+	<ActiveConfiguration index="0"/>	</BuildConfigurations>
+</Project>

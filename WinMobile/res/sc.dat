@@ -1,0 +1,47 @@
+<COMMENT>
+WinMobile by m1kc - v.1.0 beta.
+Shortcut data file.
+</COMMENT>
+
+<SC>
+Мой компьютер
+10
+10
+mycomp.png
+1
+</SC>
+
+<SC>
+Internet Explorer
+10
+40
+iexplorer.png
+3
+</SC>
+
+<SC>
+Windows Media Player
+10
+70
+wmplayer.png
+2
+</SC>
+
+<SC>
+Imaging
+10
+100
+pictss.png
+4
+</SC>
+
+<SC>
+Панель управления
+40
+10
+cpanel2.png
+5
+</SC>
+
+<END>
+<EOF>

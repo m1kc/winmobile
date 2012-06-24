@@ -1,0 +1,270 @@
+program WinMobile;
+uses SoundPlayer;
+var ikomp, imail, isettings, iwmp, ipusk, ifon, ikursor, ititle, ix, ilogo, ipuskbutton, iminimize, ipuskmenu, iwmppanel, iwmpdown, iwmpicon: image; {Изображения}
+cursorx, cursory, keycode, time: integer;{позиция курсора, переменная для доступа к клаве, текущее время}
+WmpFileName: string; {Для плеера}
+{Активные окна}
+WmpIsActive: boolean;
+{А это тупые переменные для функций. чертов мидлетпаскаль, глаза б мои их не видели}
+rzr: boolean;
+gg:  integer;
+zzz: command;
+
+function GetTime:string;
+begin
+time:=GetCurrentTime;
+if GetMinute(time)<10 then GetTime:=IntegerToString(GetHour(time))+':0'+IntegerToString(GetMinute(time)) else GetTime:=IntegerToString(GetHour(time))+':'+IntegerToString(GetMinute(time))
+end;
+
+procedure MyComputer;
+begin
+SetColor(255,255,255);
+DrawText('Test', 0, 0);
+Delay(250);
+Repaint;
+end;
+
+procedure Pusk;
+begin
+DrawImage(ipuskmenu, 0, GetHeight-175);
+Repaint;
+Delay(2000);
+end;
+
+procedure wmp;
+begin
+SetColor(0,0,0);
+FillRect(0, 0, GetWidth, GetHeight);
+DrawImage(ilogo, GetWidth/2-36, GetHeight/2-42);
+DrawImage(ititle, 0, 0);
+DrawText('Windows Media Player', 2, 2);
+DrawImage(ix, GetWidth-26, 0);
+DrawImage(iminimize, GetWidth-49, 0);
+DrawImage(iwmpdown, 0, GetHeight-36);
+DrawImage(iwmppanel, 0, GetHeight-36);
+
+DrawImage(ipusk, 0, GetHeight-16);
+DrawImage(ipuskbutton, 0, GetHeight-16);
+DrawImage(iwmpicon, 60, GetHeight-16);
+SetColor(255,255,255);
+SetColor(255,255,255);
+DrawText(GetTime, GetWidth-GetStringWidth(GetTime)-5, GetHeight-14);
+
+if WmpIsActive=false then begin
+Delay(500);
+ClearForm;
+zzz:=CreateCommand('ОК', CM_OK, 1);
+AddCommand(zzz);  
+gg:=FormAddTextField('Имя файла:', '', 100, TF_ANY); 
+SetFormTitle('Windows Media Player');
+ShowForm;
+repeat until GetClickedCommand = zzz; 
+ShowCanvas; 
+WmpFileName:=FormGetText(gg);
+
+{SoundPlayer.setFileName(wmpFileName);
+SoundPlayer.setLoopCount(-1);
+SoundPlayer.initPlayer;
+SoundPlayer.startPlaying;}
+{Это старый вариант с использованием встроенного плеера мидлетпаскаля...}
+if OpenPlayer(WmpFileName, 'audio/midi') then rzr:=true;
+if SetPlayerCount(1) then rzr:=true;
+if StartPlayer then rzr:=true;
+end;
+
+repeat
+keycode:=GetKeyPressed;
+               if keycode=KE_KEY2 then begin
+                                        cursorY:=Cursory-2;
+                                        end;
+               if keycode=KE_KEY8 then begin
+                                        cursorY:=Cursory+2;
+                                        end;
+               if keycode=KE_KEY4 then begin
+                                        cursorx:=Cursorx-2;
+                                        end;
+               if keycode=KE_KEY6 then begin
+                                        cursorx:=Cursorx+2;
+                                        end;               
+               if KeyToAction(keycode)=GA_UP then begin
+                                                   cursorY:=Cursory-2;
+                                                   end;                                  
+               if KeyToAction(keycode)=GA_DOWN then begin
+                                                     cursorY:=Cursory+2;
+                                                     end;
+               if KeyToAction(keycode)=GA_LEFT then begin
+                                                     cursorx:=Cursorx-2;
+                                                     end;
+               if KeyToAction(keycode)=GA_RIGHT then begin
+                                                      cursorx:=Cursorx+2;
+                                                      end;
+
+               if CursorX>GetWidth-1 then CursorX:=GetWidth-1;
+               if CursorY>GetHeight-2 then CursorY:=GetHeight-2;
+               if CursorX<0 then CursorX:=0;
+               if CursorY<0 then CursorY:=0;
+               
+               SetColor(0,0,0);
+               FillRect(0, 0, GetWidth, GetHeight);
+               DrawImage(ilogo, GetWidth/2-36, GetHeight/2-42);
+               DrawImage(ititle, 0, 0);
+               DrawText('Windows Media Player', 2, 2);
+               DrawImage(ix, GetWidth-26, 0);
+               DrawImage(iminimize, GetWidth-49, 0);
+               DrawImage(iwmpdown, 0, GetHeight-36);
+               DrawImage(iwmppanel, 0, GetHeight-36);
+
+               DrawImage(ipusk, 0, GetHeight-16);
+               DrawImage(ipuskbutton, 0, GetHeight-16);
+               DrawImage(iwmpicon, 60, GetHeight-16);
+               SetColor(255,255,255);
+               DrawText(GetTime, GetWidth-GetStringWidth(GetTime)-5, GetHeight-14);
+               
+               DrawImage(ikursor, cursorx, cursory);
+               Repaint;
+
+until (keycode=KE_KEY5)and(cursorx>GetWidth-26)and(cursory<18) or (KeyToAction(keycode)=GA_FIRE)and(cursorx>GetWidth-26)and(cursory<18) or (keycode=KE_KEY5)and(cursorx>GetWidth-49)and(cursorx<GetWidth-26)and(cursory<18) or (KeyToAction(keycode)=GA_FIRE)and(cursorx>GetWidth-49)and(cursorx<GetWidth-26)and(cursory<18);
+if (cursorx>GetWidth-26)and(cursory<GetHeight-18) then begin StopPlayer; WmpIsActive:=false end else WmpIsActive:=true;
+end;
+
+
+begin
+setFont(FONT_FACE_MONOSPACE, FONT_STYLE_PLAIN, FONT_SIZE_small); 
+ifon:=LoadImage('/55zzz.png');
+ikomp:=LoadImage('/comp.png');
+imail:=LoadImage('/mail.png');
+isettings:=LoadImage('/seting.png');
+iwmp:=LoadImage('/wmplayer.png');
+ipusk:=LoadImage('/140zz.png');
+ikursor:=LoadImage('/cursorzz.png');
+ititle:=LoadImage('/wtitlez.png');
+ilogo:=LoadImage('/logo.png');
+ix:=LoadImage('/barzz.png');
+iminimize:=LoadImage('/minimizezz.png');
+ipuskbutton:=LoadImage('/puskbutton.png');
+ipuskmenu:=LoadImage('/102.png');
+iwmppanel:=LoadImage('/wmp-panel.png');
+iwmpdown:=LoadImage('/wmp-down.png');
+iwmpicon:=LoadImage('/wmplayer-mini.png');
+
+WmpIsActive:=false;
+
+DrawImage(ifon, 0, 0);
+DrawImage(ikomp, 10, 10);
+DrawImage(imail, 10, 40);
+DrawImage(isettings, 10, 70);
+DrawImage(iwmp, 10, 100);
+DrawImage(ipusk, 0, GetHeight-16);
+if WmpIsActive then DrawImage(iwmpicon, 60, GetHeight-16);
+DrawImage(ipuskbutton, 0, GetHeight-16);
+SetColor(255,255,255);
+DrawText(GetTime, GetWidth-GetStringWidth(GetTime)-5, GetHeight-14);
+
+cursorx:=40;
+cursory:=40;
+
+DrawImage(ikursor, cursorx, cursory);
+Repaint;
+
+repeat
+               keycode:=GetKeyPressed;
+               if keycode=KE_KEY2 then begin
+                                        cursorY:=Cursory-2;
+                                        end;
+               if keycode=KE_KEY8 then begin
+                                        cursorY:=Cursory+2;
+                                        end;
+               if keycode=KE_KEY4 then begin
+                                        cursorx:=Cursorx-2;
+                                        end;
+               if keycode=KE_KEY6 then begin
+                                        cursorx:=Cursorx+2;
+                                        end;
+               if keycode=KE_KEY5 then begin
+                                        if (cursorx>10)and(cursory>10)and(CursorX<30)and(CursorY<30) then MyComputer;
+                                        if (cursorx>10)and(cursory>100)and(CursorX<30)and(CursorY<120) then wmp;
+                                        if (cursorx>60)and(cursory>GetHeight-16)and(CursorX<76)and(WmpIsActive) then wmp;
+                                        if (cursorx<55)and(cursory>GetHeight-16) then Pusk;
+                                        end;
+               if KeyToAction(keycode)=GA_UP then begin
+                                                   cursorY:=Cursory-2;
+                                                   end;                                  
+               if KeyToAction(keycode)=GA_DOWN then begin
+                                                     cursorY:=Cursory+2;
+                                                     end;
+               if KeyToAction(keycode)=GA_LEFT then begin
+                                                     cursorx:=Cursorx-2;
+                                                     end;
+               if KeyToAction(keycode)=GA_RIGHT then begin
+                                                      cursorx:=Cursorx+2;
+                                                      end;
+               if KeyToAction(keycode)=GA_FIRE then begin
+                                                     if (cursorx>10)and(cursory>10)and(CursorX<30)and(CursorY<30) then MyComputer;
+                                                     if (cursorx>10)and(cursory>100)and(CursorX<30)and(CursorY<120) then wmp;
+                                                     if (cursorx>60)and(cursory>GetHeight-16)and(CursorX<76)and(WmpIsActive) then wmp;
+                                                     if (cursorx<55)and(cursory>GetHeight-16) then Pusk;
+                                                     end;
+               if CursorX>GetWidth-1 then CursorX:=GetWidth-1;
+               if CursorY>GetHeight-2 then CursorY:=GetHeight-2;
+               if CursorX<0 then CursorX:=0;
+               if CursorY<0 then CursorY:=0;
+               
+
+               
+               DrawImage(ifon, 0, 0);
+               DrawImage(ikomp, 10, 10);
+               DrawImage(imail, 10, 40);
+               DrawImage(isettings, 10, 70);
+               DrawImage(iwmp, 10, 100);
+               DrawImage(ipusk, 0, GetHeight-16);
+               DrawImage(ipuskbutton, 0, GetHeight-16);
+               if WmpIsActive then DrawImage(iwmpicon, 60, GetHeight-16);
+               SetColor(255,255,255);
+               DrawText(GetTime, GetWidth-GetStringWidth(GetTime)-5, GetHeight-14);
+               DrawImage(ikursor, cursorx, cursory);
+               
+               if (cursorx>10)and(cursory>10)and(CursorX<30)and(CursorY<30) then begin
+                                                                                   setcolor(244,242,242);
+                                                                                   fillRect(cursorx+10,cursory+15,89,15);
+                                                                                   setcolor(111,111,111);
+                                                                                   drawrect(cursorx+10,cursory+15,89,15);
+																																									 setcolor(0,0,11);
+                                                                                   drawText('Мой компьютер',cursorx+13,cursory+17);
+                                                                                   end;
+               if (cursorx>10)and(cursory>40)and(CursorX<30)and(CursorY<60) then begin
+                                                                                   setcolor(244,242,242);
+                                                                                   fillRect(cursorx+10,cursory+15,89,15);
+                                                                                   setcolor(111,111,111);
+                                                                                   drawrect(cursorx+10,cursory+15,89,15);
+																																									 setcolor(0,0,11);
+                                                                                   drawText('Отправить SMS',cursorx+13,cursory+17);
+                                                                                   end;
+               if (cursorx>10)and(cursory>70)and(CursorX<30)and(CursorY<90) then begin
+                                                                                   setcolor(244,242,242);
+                                                                                   fillRect(cursorx+10,cursory+15,110,15);
+                                                                                   setcolor(111,111,111);
+                                                                                   drawrect(cursorx+10,cursory+15,110,15);
+																																									 setcolor(0,0,11);
+                                                                                   drawText('Панель управления',cursorx+13,cursory+17);
+                                                                                   end;
+               if (cursorx>10)and(cursory>100)and(CursorX<30)and(CursorY<120) then begin
+                                                                                     setcolor(244,242,242);
+                                                                                     fillRect(cursorx+10,cursory+15,85,30);
+                                                                                     setcolor(111,111,111);
+                                                                                     drawrect(cursorx+10,cursory+15,85,30);
+																																  									 setcolor(0,0,11);
+                                                                                     drawText('Windows Media',cursorx+13,cursory+17);
+                                                                                     drawText('Player',cursorx+13,cursory+32);
+                                                                                     end;
+
+               
+               Repaint;
+until keycode=KE_KEY0;
+SetColor(0,0,0);
+FillRect(0,0,GetWidth,GetHeight);
+setcolor(255,255,255);
+DrawText('Завершение работы...', GetWidth/2-GetStringWidth('Завершение работы...')/2, GetHeight/2);
+Repaint;
+Delay(1500);
+end.
+ 

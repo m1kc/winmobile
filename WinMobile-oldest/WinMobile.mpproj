@@ -1,0 +1,31 @@
+<Project>
+	<MIDlet Name="WinMobile" Vendor="MIDletPascal" Version="1.0.0" Icon="/icon.png"/>
+	<Sources>
+		<source filename="WinMobile.mpsrc"/>
+	</Sources>
+	<Resources>
+		<resource filename="icon.png" configurations=":all:"/>
+		<resource filename="comp.png" configurations=":all:"/>
+		<resource filename="55zzz.png" configurations=":all:"/>
+		<resource filename="mail.png" configurations=":all:"/>
+		<resource filename="seting.png" configurations=":all:"/>
+		<resource filename="muk.png" configurations=":all:"/>
+		<resource filename="140zz.png" configurations=":all:"/>
+		<resource filename="cursorzz.png" configurations=":all:"/>
+		<resource filename="wmplayer.png" configurations=":all:"/>
+		<resource filename="Mission.mid" configurations=":all:"/>
+		<resource filename="wtitlez.png" configurations=":all:"/>
+		<resource filename="logo.png" configurations=":all:"/>
+		<resource filename="barzz.png" configurations=":all:"/>
+		<resource filename="puskbutton.png" configurations=":all:"/>
+		<resource filename="minimizezz.png" configurations=":all:"/>
+		<resource filename="102.png" configurations=":all:"/>
+		<resource filename="wmp-down.png" configurations=":all:"/>
+		<resource filename="wmp-panel.png" configurations=":all:"/>
+		<resource filename="wmplayer-mini.png" configurations=":all:"/>
+	</Resources>
+	<BuildConfigurations>
+		<configuration name="Default" type="fullscreen" version="2" math="1"/>
+		<configuration name="MIDP_1_0" type="normal" version="1" math="1"/>
+	<ActiveConfiguration index="0"/>	</BuildConfigurations>
+</Project>
